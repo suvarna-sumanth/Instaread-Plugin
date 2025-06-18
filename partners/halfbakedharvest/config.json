@@ -6,13 +6,17 @@
     {
       "target_selector": ".recipe-content",
       "insert_position": "append",
-      "exclude_slugs": ["about", "contact", "privacy"]
+      "exclude_slugs": ["about", "privacy"]
+    },
+    {
+      "target_selector": ".sidebar",
+      "insert_position": "prepend",
+      "exclude_slugs": ["contact"]
     }
   ],
   "styles": {
     "player_color": "#FF6B6B",
-    "player_height": "60px",
-    "button_style": "rounded"
+    "player_height": "60px"
   },
   "version": "1.0.0"
 }

@@ -65,19 +65,27 @@ class InstareadPlayer {
     }
 
     private function get_settings() {
+        // For partners: use config.json with multiple rules
         if ($this->partner_config) {
             return [
                 'publication' => $this->partner_config['publication'] ?? 'default',
-                'target_selector' => $this->partner_config['injection_rules'][0]['target_selector'] ?? '.entry-content',
-                'insert_position' => $this->partner_config['injection_rules'][0]['insert_position'] ?? 'append',
-                'exclude_slugs' => implode(',', $this->partner_config['injection_rules'][0]['exclude_slugs'] ?? [])
+                'injection_rules' => $this->partner_config['injection_rules'] ?? []
             ];
         }
         
-        return wp_parse_args(
-            get_option('instaread_settings', []),
-            $this->get_default_settings()
-        );
+        // For default: use WordPress settings with single rule
+        $wp_settings = get_option('instaread_settings', $this->get_default_settings());
+        
+        return [
+            'publication' => $wp_settings['publication'] ?? 'default',
+            'injection_rules' => [
+                [
+                    'target_selector' => $wp_settings['target_selector'] ?? '.entry-content',
+                    'insert_position' => $wp_settings['insert_position'] ?? 'append',
+                    'exclude_slugs' => $wp_settings['exclude_slugs'] ?? 'about,home'
+                ]
+            ]
+        ];
     }
 
     private function get_default_settings() {
@@ -147,7 +155,7 @@ class InstareadPlayer {
     public function field_html($args) {
         $key = $args['key'];
         $field = $args['args'];
-        $value = $this->settings[$key] ?? '';
+        $value = $this->settings['injection_rules'][0][$key] ?? '';
 
         switch ($field['type']) {
             case 'select':
@@ -188,6 +196,15 @@ class InstareadPlayer {
     }
 
     public function render_settings_page() {
+        // For partners, show a notice that settings are managed via config.json
+        if ($this->partner_config) {
+            echo '<div class="notice notice-info">';
+            echo '<p>This plugin is configured via partner configuration. Settings are managed through config.json.</p>';
+            echo '</div>';
+            return;
+        }
+        
+        $this->settings = get_option('instaread_settings', $this->get_default_settings());
         ?>
         <div class="wrap">
             <h1>Instaread Audio Player Configuration</h1>
@@ -203,7 +220,11 @@ class InstareadPlayer {
     }
 
     public function enqueue_assets() {
-        if (!$this->should_inject_player()) return;
+        // Only inject on single posts/pages
+        if (!is_singular() || !is_main_query()) return;
+        
+        // Don't inject if no rules defined
+        if (empty($this->settings['injection_rules'])) return;
 
         wp_enqueue_script(
             'instaread-player',
@@ -217,67 +238,70 @@ class InstareadPlayer {
     }
 
     private function inject_player_script() {
-        $config = [
-            'publication' => esc_js($this->settings['publication']),
-            'target' => esc_js($this->settings['target_selector']),
-            'position' => esc_js($this->settings['insert_position'])
-        ];
-
-        $script = <<<JS
-        document.addEventListener('DOMContentLoaded', function() {
-            const config = {
-                publication: "{$config['publication']}",
-                targetSelector: "{$config['target']}",
-                insertPosition: "{$config['position']}"
-            };
+        global $post;
+        $current_slug = $post->post_name;
+        $script = "document.addEventListener('DOMContentLoaded', function() {";
+        
+        foreach ($this->settings['injection_rules'] as $rule) {
+            // Skip if current slug is excluded
+            $excluded_slugs = array_map('trim', explode(',', $rule['exclude_slugs'] ?? ''));
+            if (in_array($current_slug, $excluded_slugs)) continue;
             
-            const loadPlayer = () => {
-                const target = document.querySelector(config.targetSelector);
-                if (!target) return false;
+            $config = [
+                'publication' => esc_js($this->settings['publication']),
+                'target' => esc_js($rule['target_selector']),
+                'position' => esc_js($rule['insert_position'])
+            ];
+
+            $script .= <<<JS
+            // Rule for {$config['target']}
+            (function() {
+                const config = {
+                    publication: "{$config['publication']}",
+                    targetSelector: "{$config['target']}",
+                    insertPosition: "{$config['position']}"
+                };
                 
-                if (typeof InstareadPlayer === 'function') {
-                    new InstareadPlayer(config);
-                    return true;
-                }
-                return false;
-            };
-            
-            // Initial attempt
-            if (loadPlayer()) return;
-            
-            // Watch for dynamic content changes
-            const observer = new MutationObserver((mutations) => {
-                for (const mutation of mutations) {
-                    if (mutation.addedNodes.length > 0 && loadPlayer()) {
-                        observer.disconnect();
-                        break;
+                const loadPlayer = () => {
+                    const target = document.querySelector(config.targetSelector);
+                    if (!target) return false;
+                    
+                    if (typeof InstareadPlayer === 'function') {
+                        new InstareadPlayer(config);
+                        return true;
                     }
-                }
-            });
-            
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true,
-                attributes: false,
-                characterData: false
-            });
-        });
-        JS;
+                    return false;
+                };
+                
+                // Initial attempt
+                if (loadPlayer()) return;
+                
+                // Watch for dynamic content changes
+                const observer = new MutationObserver((mutations) => {
+                    for (const mutation of mutations) {
+                        if (mutation.addedNodes.length > 0 && loadPlayer()) {
+                            observer.disconnect();
+                            break;
+                        }
+                    }
+                });
+                
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true,
+                    attributes: false,
+                    characterData: false
+                });
+            })();
+            JS;
+        }
 
+        $script .= "});";
         wp_add_inline_script('instaread-player', $script);
     }
 
-    private function should_inject_player() {
-        if (!is_singular() || !is_main_query()) return false;
-        
-        global $post;
-        $excluded = array_map('trim', explode(',', $this->settings['exclude_slugs']));
-        
-        return !in_array($post->post_name, $excluded, true);
-    }
-
     public function add_resource_hints($urls, $relation_type) {
-        if ($relation_type === 'preconnect' && $this->should_inject_player()) {
+        if ($relation_type === 'preconnect' && is_singular()) {
             $urls[] = 'https://instaread.co';
         }
         return array_unique($urls);
