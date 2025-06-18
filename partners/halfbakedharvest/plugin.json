@@ -1,0 +1,10 @@
+{
+  "name": "Instaread Audio Player - Half Baked Harvest",
+  "version": "1.0.0",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/halfbakedharvest-v1.0.0/halfbakedharvest-v1.0.0.zip",
+  "requires": "5.6",
+  "tested": "6.5",
+  "sections": {
+    "changelog": "<h4>1.0.0</h4><ul><li>Half Baked Harvest custom build</li><li>Partner-specific injection rules</li></ul>"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "partner_id": "halfbakedharvest",
+  "domain": "halfbakedharvest.com",
+  "publication": "halfbakedharvest",
+  "injection_rules": [
+    {
+      "target_selector": ".recipe-content",
+      "insert_position": "append",
+      "exclude_slugs": ["about", "contact", "privacy"]
+    }
+  ],
+  "styles": {
+    "player_color": "#FF6B6B",
+    "player_height": "60px",
+    "button_style": "rounded"
+  },
+  "version": "1.0.0"
+}

@@ -1,0 +1,85 @@
+name: Partner Plugin Builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      partner_id:
+        description: "Partner ID to build"
+        required: true
+        type: string
+      version:
+        description: "Plugin version"
+        required: true
+        default: "1.0.0"
+        type: string
+
+jobs:
+  build-partner-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate partner exists
+        run: |
+          if [ ! -d "partners/${{ github.event.inputs.partner_id }}" ]; then
+            echo "Partner directory not found: ${{ github.event.inputs.partner_id }}"
+            exit 1
+          fi
+
+      - name: Build partner plugin
+        run: |
+          PARTNER_ID="${{ github.event.inputs.partner_id }}"
+          VERSION="${{ github.event.inputs.version }}"
+          BUILD_DIR="build/${PARTNER_ID}"
+
+          # Create build directory
+          mkdir -p ${BUILD_DIR}
+
+          # Copy core plugin files
+          cp -r core/* ${BUILD_DIR}/
+
+          # Copy partner-specific config
+          cp partners/${PARTNER_ID}/config.json ${BUILD_DIR}/
+          cp partners/${PARTNER_ID}/*.css ${BUILD_DIR}/ 2>/dev/null || true
+
+          # Update plugin header with partner info
+          sed -i "s/Plugin Name: Instaread Audio Player/Plugin Name: Instaread Audio Player - ${PARTNER_ID}/" ${BUILD_DIR}/instaread-core.php
+          sed -i "s/Version: 1.0.0/Version: ${VERSION}/" ${BUILD_DIR}/instaread-core.php
+
+          # Create ZIP
+          cd build && zip -r ${PARTNER_ID}-v${VERSION}.zip ${PARTNER_ID}/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.partner_id }}-v${{ github.event.inputs.version }}
+          name: "${{ github.event.inputs.partner_id }} Plugin v${{ github.event.inputs.version }}"
+          files: build/${{ github.event.inputs.partner_id }}-v${{ github.event.inputs.version }}.zip
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate partner plugin.json
+        run: |
+          PARTNER_ID="${{ github.event.inputs.partner_id }}"
+          VERSION="${{ github.event.inputs.version }}"
+
+          cat > partners/${PARTNER_ID}/plugin.json << EOF
+          {
+            "name": "Instaread Audio Player - ${PARTNER_ID}",
+            "version": "${VERSION}",
+            "download_url": "https://github.com/${{ github.repository }}/releases/download/${PARTNER_ID}-v${VERSION}/${PARTNER_ID}-v${VERSION}.zip",
+            "requires": "5.6",
+            "tested": "6.5",
+            "sections": {
+              "changelog": "<h4>${VERSION}</h4><ul><li>Partner-specific build for ${PARTNER_ID}</li></ul>"
+            }
+          }
+          EOF
+
+      - name: Commit partner plugin.json
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add partners/${{ github.event.inputs.partner_id }}/plugin.json
+          git commit -m "Update plugin.json for ${{ github.event.inputs.partner_id }} v${{ github.event.inputs.version }}" || exit 0
+          git push
