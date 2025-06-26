@@ -16,6 +16,7 @@ on:
 jobs:
   build-partner-plugin:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -50,13 +51,14 @@ jobs:
           # Create ZIP
           cd build && zip -r ${PARTNER_ID}-v${VERSION}.zip ${PARTNER_ID}/
 
-      - name: Create Release
+      - name: Create Release (Optional)
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.partner_id }}-v${{ github.event.inputs.version }}
           name: "${{ github.event.inputs.partner_id }} Plugin v${{ github.event.inputs.version }}"
           files: build/${{ github.event.inputs.partner_id }}-v${{ github.event.inputs.version }}.zip
-          token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate partner plugin.json
         run: |
@@ -76,10 +78,16 @@ jobs:
           }
           EOF
 
-      - name: Commit partner plugin.json
+      - name: Commit plugin.json
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add partners/${{ github.event.inputs.partner_id }}/plugin.json
           git commit -m "Update plugin.json for ${{ github.event.inputs.partner_id }} v${{ github.event.inputs.version }}" || exit 0
           git push
+
+      - name: Upload ZIP as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: instaread-plugin-${{ github.event.inputs.partner_id }}
+          path: build/${{ github.event.inputs.partner_id }}-v${{ github.event.inputs.version }}.zip
