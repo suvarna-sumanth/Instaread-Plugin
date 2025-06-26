@@ -1,0 +1,19 @@
+{
+  "partner_id": "gardenandgun",
+  "domain": "gardenandgun.com",
+  "publication": "gardenandgun",
+  "injection_context": "singular",
+  "injection_rules": [
+    {
+      "target_selector": ".article-content",
+      "insert_position": "prepend",
+      "exclude_slugs": ["privacy-policy", "terms"]
+    },
+    {
+      "target_selector": ".text-block",
+      "insert_position": "prepend",
+      "exclude_slugs": ["contact", "about"]
+    }
+  ],
+  "version": "2.2.0"
+}
