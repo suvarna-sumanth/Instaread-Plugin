@@ -9,6 +9,9 @@
 
 defined('ABSPATH') || exit;
 
+// Top-level use statement - CRITICAL FIX
+use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+
 // Load partner configuration if available
 $partner_config_file = __DIR__ . '/config.json';
 $partner_config = file_exists($partner_config_file)
@@ -21,12 +24,16 @@ if (file_exists(__DIR__ . '/plugin-update-checker/plugin-update-checker.php')) {
     try {
         require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
         if (class_exists('YahnisElsts\PluginUpdateChecker\v5\PucFactory')) {
-            use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
             $puc_loaded = true;
+            error_log('Instaread: Update checker loaded successfully');
+        } else {
+            error_log('Instaread: PucFactory class not found after require');
         }
     } catch (Exception $e) {
         error_log('Instaread Plugin: Update checker failed to load - ' . $e->getMessage());
     }
+} else {
+    error_log('Instaread: Update checker file not found at ' . __DIR__ . '/plugin-update-checker/plugin-update-checker.php');
 }
 
 class InstareadPlayer {
@@ -50,15 +57,22 @@ class InstareadPlayer {
         $this->partner_config = $partner_config;
         $this->puc_loaded = $puc_loaded;
         
+        // Log initialization
+        error_log('Instaread: Plugin constructor started');
+        
         // Initialize settings first
         $this->settings = $this->get_settings();
+        error_log('Instaread: Settings loaded: ' . print_r($this->settings, true));
         
         // Get plugin version
         $this->get_plugin_version();
+        error_log('Instaread: Plugin version: ' . $this->plugin_version);
         
         // Initialize update checker only if library loaded
         if ($this->puc_loaded) {
             $this->init_update_checker();
+        } else {
+            error_log('Instaread: Update checker not loaded, skipping initialization');
         }
         
         // Register WordPress hooks
@@ -69,10 +83,13 @@ class InstareadPlayer {
         
         // Migration for legacy settings
         $this->maybe_migrate_old_settings();
+        
+        error_log('Instaread: Plugin initialization complete');
     }
 
     private function init_update_checker() {
         if (!$this->puc_loaded) {
+            error_log('Instaread: Update checker not loaded, cannot initialize');
             return;
         }
         
@@ -81,11 +98,14 @@ class InstareadPlayer {
                 ? "https://raw.githubusercontent.com/suvarna-sumanth/Instaread-Plugin/main/partners/{$this->partner_config['partner_id']}/plugin.json"
                 : 'https://suvarna-sumanth.github.io/Instaread-Plugin/plugin.json';
 
+            error_log('Instaread: Using update URL: ' . $update_url);
+            
             $this->update_checker = PucFactory::buildUpdateChecker(
                 $update_url,
                 __FILE__,
                 $this->partner_config ? 'instaread-' . $this->partner_config['partner_id'] : 'instaread-audio-player'
             );
+            error_log('Instaread: Update checker initialized successfully');
         } catch (Exception $e) {
             error_log('Instaread Plugin: Update checker initialization failed - ' . $e->getMessage());
         }
@@ -286,6 +306,9 @@ class InstareadPlayer {
     }
 
     public function enqueue_assets() {
+        // Log asset enqueue
+        error_log('Instaread: Attempting to enqueue assets');
+        
         // Get injection context from config or settings
         $injection_context = $this->settings['injection_context'] ?? 'singular';
         $should_inject = false;
@@ -312,6 +335,7 @@ class InstareadPlayer {
 
         // Don't inject if conditions not met or no rules defined
         if (!$should_inject || empty($this->settings['injection_rules'])) {
+            error_log('Instaread: Skipping injection - conditions not met');
             return;
         }
 
@@ -321,6 +345,7 @@ class InstareadPlayer {
         
         // Inject player script
         $this->inject_player_script();
+        error_log('Instaread: Player script injected');
     }
 
     private function inject_player_script() {
@@ -328,16 +353,13 @@ class InstareadPlayer {
         
         $current_slug = isset($post->post_name) ? $post->post_name : '';
         $script = "document.addEventListener('DOMContentLoaded', function() {";
+        $script .= "console.log('Instaread: DOMContentLoaded fired');";
         
-        foreach ($this->settings['injection_rules'] as $rule) {
+        foreach ($this->settings['injection_rules'] as $index => $rule) {
             // Parse excluded slugs
-            $excluded_slugs = [];
-            if (!empty($rule['exclude_slugs'])) {
-                $excluded_slugs = array_map('trim', explode(',', $rule['exclude_slugs']));
-            }
-            
-            // Skip if current slug is excluded
+            $excluded_slugs = array_map('trim', explode(',', $rule['exclude_slugs'] ?? ''));
             if ($current_slug && in_array($current_slug, $excluded_slugs)) {
+                $script .= "console.log('Instaread: Skipping rule {$index} - slug excluded');";
                 continue;
             }
             
@@ -347,42 +369,52 @@ class InstareadPlayer {
             $version = esc_js($this->plugin_version);
 
             $script .= <<<JS
-            // Injection rule for {$target_selector}
+            // Rule {$index} for {$target_selector}
             (function() {
+                console.log('Instaread: Processing rule {$index} for selector "{$target_selector}"');
+                
+                // Find target element
                 var target = document.querySelector('{$target_selector}');
                 if (!target) {
-                    console.log('Instaread: Target selector "{$target_selector}" not found');
+                    console.error('Instaread: Target selector "{$target_selector}" not found');
                     return;
                 }
+                console.log('Instaread: Target element found:', target);
                 
                 // Create player container
                 var playerContainer = document.createElement('div');
                 playerContainer.className = 'playerContainer instaread-content-wrapper';
                 playerContainer.innerHTML = '<instaread-player publication="{$publication}" class="instaread-player"><div class="instaread-audio-player" style="margin: 0px; box-sizing: border-box;"><iframe id="instaread_iframe" name="instaread_playlist" width="100%" height="100%" scrolling="no" frameborder="0" loading="lazy" title="Audio Article" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" style="display: block;" data-pin-nopin="true"></iframe></div></instaread-player>';
+                console.log('Instaread: Player container created');
                 
                 // Create script element
                 var scriptElement = document.createElement('script');
-                scriptElement.src = "https://instaread.co/js/instaread.{$publication}.js?version={$version}";
+                var scriptUrl = "https://instaread.co/js/instaread.{$publication}.js?version={$version}";
+                scriptElement.src = scriptUrl;
                 scriptElement.async = true;
+                console.log('Instaread: Script element created with URL:', scriptUrl);
                 
-                // Insert based on position
+                // Insert elements
                 switch ('{$insert_position}') {
                     case 'prepend':
                         target.insertBefore(playerContainer, target.firstChild);
                         target.insertBefore(scriptElement, target.firstChild);
+                        console.log('Instaread: Elements prepended to target');
                         break;
                     case 'append':
                         target.appendChild(playerContainer);
                         target.appendChild(scriptElement);
+                        console.log('Instaread: Elements appended to target');
                         break;
                     case 'inside':
                     default:
                         target.appendChild(playerContainer);
                         target.appendChild(scriptElement);
+                        console.log('Instaread: Elements inserted inside target');
                         break;
                 }
                 
-                console.log('Instaread: Player injected into "{$target_selector}"');
+                console.log('Instaread: Injection complete for rule {$index}');
             })();
 JS;
         }
