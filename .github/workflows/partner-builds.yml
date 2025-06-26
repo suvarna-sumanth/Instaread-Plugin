@@ -79,10 +79,10 @@ jobs:
           }
           EOF
 
-      - name: Commit partner plugin.json
+      - name: Commit plugin.json update
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add partners/${{ github.event.inputs.partner_id }}/plugin.json
-          git commit -m "Update plugin.json for ${{ github.event.inputs.partner_id }} v${{ github.event.inputs.version }}"
-          git push
+          git commit -m "Update plugin.json for ${{ github.event.inputs.partner_id }} v${{ github.event.inputs.version }}" || echo "No changes to commit"
+          git push || echo "Nothing to push"
