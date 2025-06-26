@@ -47,8 +47,8 @@ class InstareadPlayer {
     }
 
     private function init_update_checker() {
-        $update_url = $this->partner_config
-            ? "https://suvarna-sumanth.github.io/Instaread-Plugin/partners/{$this->partner_config['partner_id']}/plugin.json"
+         $update_url = $this->partner_config 
+            ? "https://raw.githubusercontent.com/suvarna-sumanth/Instaread-Plugin/main/partners/{$this->partner_config['partner_id']}/plugin.json"
             : 'https://suvarna-sumanth.github.io/Instaread-Plugin/plugin.json';
 
         $this->update_checker = PucFactory::buildUpdateChecker(
