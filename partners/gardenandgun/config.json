@@ -6,12 +6,12 @@
   "injection_rules": [
     {
       "target_selector": ".article-content",
-      "insert_position": "prepend",
+      "insert_position": "before_element",
       "exclude_slugs": ["privacy-policy", "terms"]
     },
     {
       "target_selector": ".text-block",
-      "insert_position": "prepend",
+      "insert_position": "before_element",
       "exclude_slugs": ["contact", "about"]
     }
   ],
