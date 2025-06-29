@@ -252,7 +252,7 @@ class InstareadPlayer {
     </instaread-player>`;
         const s = document.createElement("script");
         s.src = "https://instaread.co/js/instaread.{$pub}.js?version={$ver}";
-        s.async = true;
+         s.type = "module";
         switch("{$pos}") {
           case "prepend": case "before_element":
             t.parentNode.insertBefore(w, t);
@@ -271,7 +271,7 @@ class InstareadPlayer {
     })();
     JS;
         }
-    
+        $script .= "console.log('[Instaread Player] Injection successful.');\n";
         $script .= "});";
         wp_add_inline_script('instaread-player', $script);
         $this->log('Injected script strategy=' . $strat);
