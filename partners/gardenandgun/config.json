@@ -3,15 +3,16 @@
   "domain": "gardenandgun.com",
   "publication": "gardenandgun",
   "injection_context": "singular",
+  "injection_strategy": "first",
   "injection_rules": [
     {
       "target_selector": ".article-content",
-      "insert_position": "before_element",
+      "insert_position": "prepend",
       "exclude_slugs": ["privacy-policy", "terms"]
     },
     {
-      "target_selector": ".text-block",
-      "insert_position": "before_element",
+      "target_selector": ".p2",
+      "insert_position": "prepend",
       "exclude_slugs": ["contact", "about"]
     }
   ],

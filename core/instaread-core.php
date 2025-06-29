@@ -3,7 +3,7 @@
  * Plugin Name: Instaread Audio Player
  * Plugin URI: https://instaread.co
  * Description: Auto-injecting audio player with partner configuration support
- * Version: 2.0.0
+ * Version: 2.2.0
  * Author: Instaread Team
  */
 
@@ -15,7 +15,7 @@ $partner_config = file_exists($partner_config_file)
     ? json_decode(file_get_contents($partner_config_file), true)
     : null;
 
-// Auto-update integration with partner-specific endpoint
+// Auto-update integration
 require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
@@ -23,9 +23,8 @@ class InstareadPlayer {
     private static $instance;
     private $settings;
     private $partner_config;
-    private $update_checker;
     private $plugin_version;
-    private $debugger_mode = false; // Set to true to enable debug logs
+    private $debugger_mode = false;
 
     public static function init() {
         if (null === self::$instance) {
@@ -38,22 +37,19 @@ class InstareadPlayer {
         global $partner_config;
         $this->partner_config = $partner_config;
         $this->settings = $this->get_settings();
+        $this->get_plugin_version();
         $this->init_update_checker();
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_menu', [$this, 'add_settings_page']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
         add_filter('wp_resource_hints', [$this, 'add_resource_hints'], 10, 2);
         $this->maybe_migrate_old_settings();
-        $this->get_plugin_version();
         $this->log('InstareadPlayer initialized.');
     }
 
-    private function log($message) {
+    private function log($msg) {
         if ($this->debugger_mode) {
-            if (is_array($message) || is_object($message)) {
-                $message = print_r($message, true);
-            }
-            error_log('[InstareadPlayer] ' . $message);
+            error_log('[InstareadPlayer] ' . print_r($msg, true));
         }
     }
 
@@ -62,336 +58,255 @@ class InstareadPlayer {
             ? "https://raw.githubusercontent.com/suvarna-sumanth/Instaread-Plugin/main/partners/{$this->partner_config['partner_id']}/plugin.json"
             : 'https://suvarna-sumanth.github.io/Instaread-Plugin/plugin.json';
 
-        $this->update_checker = PucFactory::buildUpdateChecker(
+        PucFactory::buildUpdateChecker(
             $update_url,
             __FILE__,
             $this->partner_config ? 'instaread-' . $this->partner_config['partner_id'] : 'instaread-audio-player'
         );
-        $this->log('Update checker initialized with URL: ' . $update_url);
-    }
-
-    private function get_settings() {
-        if ($this->partner_config) {
-            $settings = [
-                'publication' => $this->partner_config['publication'] ?? 'default',
-                'injection_rules' => $this->partner_config['injection_rules'] ?? [],
-                'injection_context' => $this->partner_config['injection_context'] ?? 'singular'
-            ];
-        } else {
-            $wp_settings = get_option('instaread_settings', $this->get_default_settings());
-            $settings = [
-                'publication' => $wp_settings['publication'] ?? 'default',
-                'injection_rules' => [
-                    [
-                        'target_selector' => $wp_settings['target_selector'] ?? '.entry-content',
-                        'insert_position' => $wp_settings['insert_position'] ?? 'append',
-                        'exclude_slugs' => $wp_settings['exclude_slugs'] ?? 'about,home'
-                    ]
-                ],
-                'injection_context' => $wp_settings['injection_context'] ?? 'singular'
-            ];
-        }
-        $this->log('Settings loaded: ' . json_encode($settings));
-        return $settings;
-    }
-
-    private function get_default_settings() {
-        return [
-            'publication' => 'default',
-            'target_selector' => '.entry-content',
-            'insert_position' => 'append',
-            'exclude_slugs' => 'about,home',
-            'injection_context' => 'singular'
-        ];
+        $this->log('Update checker URL: ' . $update_url);
     }
 
     private function get_plugin_version() {
         if (!function_exists('get_plugin_data')) {
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
-        $plugin_data = get_plugin_data(__FILE__);
-        $this->plugin_version = $plugin_data['Version'] ?? '1.0.0';
+        $data = get_plugin_data(__FILE__);
+        $this->plugin_version = $data['Version'] ?? '1.0.0';
         $this->log('Plugin version: ' . $this->plugin_version);
     }
+
+    private function get_settings() {
+        if ($this->partner_config) {
+            return [
+                'publication' => $this->partner_config['publication'] ?? 'default',
+                'injection_rules' => array_map(function($r) {
+                    if (isset($r['exclude_slugs']) && is_array($r['exclude_slugs'])) {
+                        $r['exclude_slugs'] = implode(',', $r['exclude_slugs']);
+                    }
+                    return $r;
+                }, $this->partner_config['injection_rules'] ?? []),
+                'injection_context' => $this->partner_config['injection_context'] ?? 'singular',
+                'injection_strategy' => $this->partner_config['injection_strategy'] ?? 'first',
+            ];
+        }
+        $wp = get_option('instaread_settings', []);
+        return [
+            'publication' => $wp['publication'] ?? 'default',
+            'injection_rules' => [
+                [
+                    'target_selector' => $wp['target_selector'] ?? '.entry-content',
+                    'insert_position' => $wp['insert_position'] ?? 'append',
+                    'exclude_slugs' => $wp['exclude_slugs'] ?? '',
+                ]
+            ],
+            'injection_context' => $wp['injection_context'] ?? 'singular',
+            'injection_strategy' => $wp['injection_strategy'] ?? 'first',
+        ];
+    }
+    
 
     public function register_settings() {
         register_setting('instaread_settings', 'instaread_settings', [
             'type' => 'array',
             'sanitize_callback' => [$this, 'sanitize_settings']
         ]);
-        add_settings_section(
-            'instaread_main',
-            'Player Configuration',
-            null,
-            'instaread-settings'
-        );
+        add_settings_section('instaread_main', 'Player Configuration', null, 'instaread-settings');
+
         $fields = [
-            'publication' => [
-                'label' => 'Publication ID',
-                'type' => 'text',
-                'description' => 'The publication identifier from Instaread'
-            ],
-            'target_selector' => [
-                'label' => 'Target Element',
-                'type' => 'text',
-                'description' => 'CSS selector for injection point (e.g., .entry-content)',
-                'sanitize' => 'sanitize_css_selector'
-            ],
-            'insert_position' => [
-                'label' => 'Insert Position',
-                'type' => 'select',
-                'options' => [
-                    'prepend' => 'Prepend',
-                    'append' => 'Append',
-                    'inside' => 'Inside'
-                ],
-                'description' => 'Where to insert the player relative to the target element'
-            ],
-            'exclude_slugs' => [
-                'label' => 'Excluded Slugs',
-                'type' => 'text',
-                'description' => 'Comma-separated list of slugs to exclude',
-                'sanitize' => 'sanitize_slug_list'
-            ],
-            'injection_context' => [
-                'label' => 'Injection Context',
-                'type' => 'select',
-                'options' => [
-                    'singular' => 'Single Posts/Pages Only',
-                    'all' => 'All Pages',
-                    'archive' => 'Archives Only',
-                    'front_page' => 'Front Page Only',
-                    'posts_page' => 'Blog Index Only'
-                ],
-                'description' => 'Where to inject the player'
-            ]
+            'publication' => ['label'=>'Publication','type'=>'text','description'=>'Instaread publication identifier'],
+            'target_selector'=>['label'=>'Target Selector','type'=>'text','description'=>'CSS selector for injection'],
+            'insert_position'=>['label'=>'Insert Position','type'=>'select','options'=>['prepend'=>'Prepend','append'=>'Append','inside'=>'Inside'],'description'=>'Where to insert'],
+            'exclude_slugs'=>['label'=>'Exclude Slugs','type'=>'text','description'=>'Comma-separated slugs to skip'],
+            'injection_context'=>['label'=>'Context','type'=>'select','options'=>['singular'=>'Single Posts/Pages','all'=>'All Pages','archive'=>'Archive','front_page'=>'Front Page','posts_page'=>'Blog Index'],'description'=>'Where to inject'],
         ];
-        foreach ($fields as $key => $args) {
+        foreach ($fields as $key => $fs) {
             add_settings_field(
-                "instaread_{$key}",
-                $args['label'],
+                "instaread_$key",
+                $fs['label'],
                 [$this, 'field_html'],
                 'instaread-settings',
                 'instaread_main',
-                ['key' => $key, 'args' => $args]
+                ['key'=>$key,'args'=>$fs]
             );
         }
+        add_settings_field(
+            "instaread_injection_strategy",
+            'Injection Strategy',
+            function() {
+                $v = $this->settings['injection_strategy'];
+                echo '<select name="instaread_settings[injection_strategy]">';
+                foreach (['first'=>'First','all'=>'All','none'=>'None','custom'=>'Custom'] as $val=>$label) {
+                    printf('<option value="%s"%s>%s</option>',
+                        esc_attr($val),
+                        selected($v, $val, false),
+                        $label
+                    );
+                }
+                echo '</select><p class="description">Choose injection strategy</p>';
+            },
+            'instaread-settings','instaread_main'
+        );
     }
 
     public function field_html($args) {
-        $key = $args['key'];
-        $field = $args['args'];
-        $value = $this->settings['injection_rules'][0][$key] ?? '';
-        if ($key === 'injection_context') {
-            $value = $this->settings['injection_context'] ?? 'singular';
-        }
-        switch ($field['type']) {
+        $k = $args['key']; $f=$args['args'];
+        $val = $this->settings['injection_rules'][0][$k] ?? '';
+        if ($k==='injection_context') $val = $this->settings['injection_context'];
+        switch ($f['type']) {
             case 'select':
-                echo '<select name="instaread_settings[' . esc_attr($key) . ']">';
-                foreach ($field['options'] as $val => $label) {
-                    printf(
-                        '<option value="%s" %s>%s</option>',
-                        esc_attr($val),
-                        selected($value, $val, false),
-                        esc_html($label)
-                    );
+                echo "<select name='instaread_settings[$k]'>";
+                foreach ($f['options'] as $opt=>$lab) {
+                    printf("<option value='%s'%s>%s</option>", esc_attr($opt), selected($val,$opt,false), $lab);
                 }
-                echo '</select>';
+                echo "</select>";
                 break;
-            case 'text':
             default:
-                printf(
-                    '<input type="text" name="instaread_settings[%s]" value="%s" class="regular-text">',
-                    esc_attr($key),
-                    esc_attr($value)
-                );
+                printf("<input type='text' name='instaread_settings[%s]' value='%s' class='regular-text'>", esc_attr($k), esc_attr($val));
         }
-        if (!empty($field['description'])) {
-            printf('<p class="description">%s</p>', esc_html($field['description']));
+        if (!empty($f['description'])) {
+            echo "<p class='description'>{$f['description']}</p>";
         }
     }
 
     public function add_settings_page() {
-        add_options_page(
-            'Instaread Settings',
-            'Instaread Player',
-            'manage_options',
-            'instaread-settings',
-            [$this, 'render_settings_page']
-        );
+        add_options_page('Instaread Settings','Instaread Player','manage_options','instaread-settings',[$this,'render_settings_page']);
     }
 
     public function render_settings_page() {
         if ($this->partner_config) {
-            echo '<div class="notice notice-info">';
-            echo '<p>This plugin is configured via partner configuration. Settings are managed through config.json.</p>';
-            echo '</div>';
+            echo '<div class="notice notice-info"><p>Configured via config.json – settings disabled here.</p></div>';
             return;
         }
-        $this->settings = get_option('instaread_settings', $this->get_default_settings());
+        $sw = get_option('instaread_settings',[]);
         ?>
-        <div class="wrap">
-            <h1>Instaread Audio Player Configuration</h1>
-            <form method="post" action="options.php">
-                <?php
-                settings_fields('instaread_settings');
-                do_settings_sections('instaread-settings');
-                submit_button('Save Settings', 'primary');
-                ?>
-            </form>
-        </div>
+        <div class="wrap"><h1>Instaread Audio Player Settings</h1>
+        <form method="post" action="options.php">
+            <?php settings_fields('instaread_settings'); do_settings_sections('instaread-settings'); submit_button(); ?>
+        </form></div>
         <?php
     }
 
     public function enqueue_assets() {
-        $injection_context = $this->settings['injection_context'] ?? 'singular';
-        $should_inject = false;
-        switch ($injection_context) {
-            case 'all':
-                $should_inject = is_main_query();
-                break;
-            case 'archive':
-                $should_inject = is_archive() && is_main_query();
-                break;
-            case 'front_page':
-                $should_inject = is_front_page() && is_main_query();
-                break;
-            case 'posts_page':
-                $should_inject = is_home() && is_main_query();
-                break;
-            case 'singular':
-            default:
-                $should_inject = is_singular() && is_main_query();
-                break;
-        }
-        $this->log('enqueue_assets: should_inject=' . ($should_inject ? 'true' : 'false'));
-        if (!$should_inject || empty($this->settings['injection_rules'])) {
-            return;
-        }
-        wp_register_script('instaread-player', '', [], null, true);
+        global $post;
+        $ctx=$this->settings['injection_context']; $slug=$post->post_name ?? '';
+        $ok = ($ctx==='all') || ($ctx==='singular' && is_singular());
+        if (!$ok || !is_main_query()) return;
+        if ($this->settings['injection_strategy']==='none') return;
+
+        wp_register_script('instaread-player','',[],null,true);
         wp_enqueue_script('instaread-player');
-        $this->inject_player_script();
+
+        if (
+    isset($this->settings['injection_strategy']) &&
+    $this->settings['injection_strategy'] === 'custom' &&
+    file_exists(plugin_dir_path(__FILE__) . 'partner.js')
+) {
+    wp_enqueue_script(
+        'instaread-partner',
+        plugin_dir_url(__FILE__) . 'partner.js',
+        [],
+        null,
+        true
+    );
+    $this->log('Loaded partner.js via custom injection strategy.');
+    return;
+} else {
+    $this->log('No partner.js found or not using custom strategy. Falling back to default injection.');
+    $this->inject_player_script(); // default fallback
+}
+
     }
 
     private function inject_player_script() {
         global $post;
-        $current_slug = isset($post->post_name) ? $post->post_name : '';
-        $script = "document.addEventListener('DOMContentLoaded', function() {";
-        foreach ($this->settings['injection_rules'] as $rule) {
-            $exclude_slugs = $rule['exclude_slugs'] ?? '';
-            if (is_array($exclude_slugs)) {
-                $excluded_slugs = array_map('trim', $exclude_slugs);
-            } else {
-                $excluded_slugs = array_map('trim', explode(',', $exclude_slugs));
-            }
-            if ($current_slug && in_array($current_slug, $excluded_slugs)) {
-                $this->log("Skipping injection for slug: $current_slug (in excluded_slugs)");
-                continue;
-            }
-            $target_selector = esc_js($rule['target_selector']);
-            $insert_position = esc_js($rule['insert_position']);
-            $publication = esc_js($this->settings['publication']);
-            $version = Math.floor(Date.now() / 3.6e6) * 3.6e6;
+        $slug = $post->post_name ?? '';
+        $pub = esc_js($this->settings['publication']);
+        $ver = time();
+        $strat = $this->settings['injection_strategy'];
+        $script = "document.addEventListener('DOMContentLoaded',function(){\n";
+    
+        foreach ($this->settings['injection_rules'] as $r) {
+            // ✅ Fix: Handle exclude_slugs as array or string
+            $exclude_raw = $r['exclude_slugs'] ?? '';
+            $exclude_str = is_array($exclude_raw) ? implode(',', $exclude_raw) : $exclude_raw;
+            $ex = array_map('trim', explode(',', $exclude_str));
+            if ($slug && in_array($slug, $ex)) continue;
+    
+            $sel = esc_js($r['target_selector']);
+            $pos = esc_js($r['insert_position']);
+            $inject_all = ($strat === 'all') ? 'true' : 'false';
+    
             $script .= <<<JS
-            // Rule for {$target_selector}
-            (function() {
-                var target = document.querySelector('{$target_selector}');
-                if (!target) return;
-                var playerContainer = document.createElement('div');
-                playerContainer.className = 'playerContainer instaread-content-wrapper';
-                playerContainer.innerHTML = `
-<instaread-player publication="{$publication}" class="instaread-player">
-<div class="instaread-audio-player" style="margin: 0px; box-sizing: border-box;">
-    <iframe id="instaread_iframe" name="instaread_playlist" width="100%" height="100%"
-            scrolling="no" frameborder="0" loading="lazy" title="Audio Article"
-            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-            style="display: block;" data-pin-nopin="true">
-    </iframe>
-</div>
-</instaread-player>
-                `;
-                var script = document.createElement('script');
-                script.src = "https://instaread.co/js/instaread.{$publication}.js?version={$version}";
-                script.async = true;
-                switch ('{$insert_position}') {
-                        case 'before_element':
-                            var beforeTarget = document.querySelector('{$target_selector}');
-                            if (beforeTarget && beforeTarget.parentNode) {
-                            beforeTarget.parentNode.insertBefore(playerContainer, beforeTarget);
-                            beforeTarget.parentNode.insertBefore(script, beforeTarget);
-                            }
-                            break;
-                        case 'after_element':
-                            var afterTarget = document.querySelector('{$target_selector}');
-                            if (afterTarget && afterTarget.parentNode) {
-                            afterTarget.parentNode.insertBefore(playerContainer, afterTarget.nextSibling);
-                            afterTarget.parentNode.insertBefore(script, afterTarget.nextSibling);
-                            }
-                            break;
-                        case 'inside_element':
-                            var insideTarget = document.querySelector('{$target_selector}');
-                            if (insideTarget) {
-                            insideTarget.appendChild(playerContainer);
-                            insideTarget.appendChild(script);
-                            }
-                            break;
-                        }
-                        console.log("Instaread Audio Player Injected Successfully")
-            })();
-JS;
+    (function(){
+      const els = document.querySelectorAll("{$sel}");
+      if (!els.length) return;
+      const list = ({$inject_all}) ? Array.from(els) : [els[0]];
+      list.forEach(function(t){
+        const w = document.createElement("div");
+        w.className = "playerContainer instaread-content-wrapper";
+        w.innerHTML = `
+    <instaread-player publication="{$pub}" class="instaread-player">
+      <div class="instaread-audio-player" style="box-sizing:border-box;margin:0">
+        <iframe id="instaread_iframe" width="100%" height="100%" scrolling="no" frameborder="0" loading="lazy" title="Audio Article" style="display:block" data-pin-nopin="true"></iframe>
+      </div>
+    </instaread-player>`;
+        const s = document.createElement("script");
+        s.src = "https://instaread.co/js/instaread.{$pub}.js?version={$ver}";
+        s.async = true;
+        switch("{$pos}") {
+          case "prepend": case "before_element":
+            t.parentNode.insertBefore(w, t);
+            t.parentNode.insertBefore(s, t);
+            break;
+          case "append": case "after_element":
+            t.parentNode.insertBefore(w, t.nextSibling);
+            t.parentNode.insertBefore(s, t.nextSibling);
+            break;
+          case "inside": case "inside_element":
+            t.appendChild(w);
+            t.appendChild(s);
+            break;
         }
+      });
+    })();
+    JS;
+        }
+    
         $script .= "});";
         wp_add_inline_script('instaread-player', $script);
-
-        // Log injection success
-        $this->log('Instaread Audio Player injection Successful');
+        $this->log('Injected script strategy=' . $strat);
     }
-
-    public function add_resource_hints($urls, $relation_type) {
-        if ($relation_type === 'preconnect') {
-            $urls[] = 'https://instaread.co';
-        }
+    
+    public function add_resource_hints($urls,$rel) {
+        if ($rel==='preconnect') $urls[]='https://instaread.co';
         return array_unique($urls);
     }
 
-    public function sanitize_settings($input) {
-        $sanitized = [];
-        $sanitized['publication'] = sanitize_text_field($input['publication'] ?? '');
-        $sanitized['target_selector'] = $this->sanitize_css_selector($input['target_selector'] ?? '');
-        $sanitized['insert_position'] = $this->sanitize_insert_position($input['insert_position'] ?? '');
-        $sanitized['exclude_slugs'] = $this->sanitize_slug_list($input['exclude_slugs'] ?? '');
-        $sanitized['injection_context'] = in_array($input['injection_context'] ?? '', ['singular', 'all', 'archive', 'front_page', 'posts_page'])
-            ? $input['injection_context'] : 'singular';
-        $this->log('Settings sanitized: ' . json_encode($sanitized));
-        return $sanitized;
-    }
-
-    private function sanitize_css_selector($input) {
-        return preg_replace('/[^a-zA-Z0-9\s\.\#\->+~=^$|*,:]/', '', $input);
-    }
-
-    private function sanitize_insert_position($input) {
-        return in_array($input, ['prepend', 'append', 'inside']) ? $input : 'append';
-    }
-
-    private function sanitize_slug_list($input) {
-        $slugs = array_map('sanitize_title', explode(',', $input));
-        return implode(',', array_unique($slugs));
+    public function sanitize_settings($in) {
+        return [
+            'publication'=>sanitize_text_field($in['publication'] ?? ''),
+            'target_selector'=>sanitize_text_field($in['target_selector'] ?? ''),
+            'insert_position'=>sanitize_text_field($in['insert_position'] ?? 'append'),
+            'exclude_slugs'=>sanitize_text_field($in['exclude_slugs'] ?? ''),
+            'injection_context'=>in_array($in['injection_context'] ?? '','all','singular','archive','front_page','posts_page') ? $in['injection_context'] : 'singular',
+            'injection_strategy'=>in_array($in['injection_strategy'] ?? 'first',['first','all','none','custom']) ? $in['injection_strategy'] : 'first',
+        ];
     }
 
     private function maybe_migrate_old_settings() {
-        $old_settings = get_option('instaread_legacy_settings', false);
-        if ($old_settings) {
-            $new_settings = [
-                'publication' => $old_settings['publication'] ?? 'default',
-                'target_selector' => $old_settings['target_selector'] ?? '.entry-content',
-                'insert_position' => $old_settings['insert_position'] ?? 'append',
-                'exclude_slugs' => $old_settings['exclude_slugs'] ?? '',
-                'injection_context' => $old_settings['injection_context'] ?? 'singular'
+        $old = get_option('instaread_legacy_settings',false);
+        if ($old) {
+            $new = [
+                'publication'=>$old['publication'] ?? '',
+                'target_selector'=>$old['target_selector'] ?? '',
+                'insert_position'=>$old['insert_position'] ?? '',
+                'exclude_slugs'=>$old['exclude_slugs'] ?? '',
+                'injection_context'=>$old['injection_context'] ?? '',
+                'injection_strategy'=>'first',
             ];
-            update_option('instaread_settings', $new_settings);
+            update_option('instaread_settings',$new);
             delete_option('instaread_legacy_settings');
-            $this->log('Legacy settings migrated.');
+            $this->log('Migrated legacy settings');
         }
     }
 }
