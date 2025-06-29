@@ -1,0 +1,9 @@
+{
+  "partner_id": "artofmanliness",
+  "domain": "artofmanliness.com",
+  "publication": "artofmanliness",
+  "injection_context": "singular",
+  "injection_strategy": "custom",
+  "injection_rules": [],
+  "version": "2.2.0"
+}
