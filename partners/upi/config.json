@@ -1,0 +1,15 @@
+{
+  "partner_id": "upi",
+  "domain": "https://www.swimmingworldmagazine.com",
+  "publication": "upi",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": ".entry-content",
+      "insert_position": "prepend",
+      "exclude_slugs": "terms"
+    }
+  ],
+  "version": "2.2.0"
+}
