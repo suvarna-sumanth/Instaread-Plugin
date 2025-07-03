@@ -262,11 +262,15 @@ class InstareadPlayer {
             t.parentNode.insertBefore(w, t.nextSibling);
             t.parentNode.insertBefore(s, t.nextSibling);
             break;
-          case "inside": case "inside_element":
+          case "inside_last_child": case "inside_element":
             t.appendChild(w);
             t.appendChild(s);
             break;
-        }
+        case "inside_first_child":
+            t.insertBefore(w, t.firstChild);
+            t.insertBefore(s, t.firstChild);
+            break;
+        }   
       });
     })();
     JS;

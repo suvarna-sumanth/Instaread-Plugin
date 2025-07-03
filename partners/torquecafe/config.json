@@ -1,0 +1,15 @@
+{
+  "partner_id": "torquecafe",
+  "domain": "torquecafe.com",
+  "publication": "torquecafe",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": ".content-inner",
+      "insert_position": "inside_first_child",
+      "exclude_slugs": []
+    }
+  ],
+  "version": "2.2.2"
+}
