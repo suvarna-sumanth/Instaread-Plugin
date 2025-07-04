@@ -1,0 +1,15 @@
+{
+  "partner_id": "outdoornews",
+  "domain": "outdoornews.com",
+  "publication": "outdoornews",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": ".elementor-widget-theme-post-content",
+      "insert_position": "inside_first_child",
+      "exclude_slugs": []
+    }
+  ],
+  "version": "2.2.4"
+}
