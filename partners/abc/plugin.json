@@ -1,0 +1,10 @@
+{
+  "name": "Instaread Audio Player - abc",
+  "version": "2.3.3",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/abc-v2.3.3/abc-v2.3.3.zip",
+  "requires": "5.6",
+  "tested": "6.5",
+  "sections": {
+    "changelog": "<h4>2.3.3</h4><ul><li>Partner-specific build for abc</li></ul>"
+  }
+}
