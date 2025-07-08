@@ -1,0 +1,15 @@
+{
+  "partner_id": "axc",
+  "domain": "axc.com",
+  "publication": "axc",
+  "version": "2.2.3",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": "html > body > div:nth-of-type(2) > div:nth-of-type(5) > div > div > div > div > div > div:nth-of-type(2) > div > div > div:nth-of-type(7) > div:nth-of-type(2) > p",
+      "insert_position": "before_element",
+      "exclude_slugs": ""
+    }
+  ]
+}
