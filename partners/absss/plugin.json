@@ -1,10 +1,10 @@
 {
-  "name": "Instaread Audio Player - abss",
+  "name": "Instaread Audio Player - absss",
   "version": "1.0.0",
   "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/absss-v1.0.0/absss-v1.0.0.zip",
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>1.0.0</h4><ul><li>Partner-specific build for abss</li></ul>"
+    "changelog": "<h4>1.0.0</h4><ul><li>Partner-specific build for absss</li></ul>"
   }
 }
