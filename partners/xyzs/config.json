@@ -1,0 +1,15 @@
+{
+  "partner_id": "xyzs",
+  "domain": "xyzs.com",
+  "publication": "xyz.com",
+  "version": "1.0.0",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": "div#tdi_44 > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(5) > div",
+      "insert_position": "before_element",
+      "exclude_slugs": ""
+    }
+  ]
+}
