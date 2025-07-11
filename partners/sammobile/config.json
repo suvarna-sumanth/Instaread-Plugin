@@ -1,0 +1,15 @@
+{
+  "partner_id": "sammobile",
+  "domain": "sammobile.com",
+  "publication": "sammobile",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": ".core-content",
+      "insert_position": "prepend",
+      "exclude_slugs": []
+    }
+  ],
+  "version": "2.2.3"
+}
