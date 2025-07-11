@@ -1,0 +1,15 @@
+{
+  "partner_id": "jcitytimes",
+  "domain": "jcitytimes.com",
+  "publication": "jcitytimes",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": ".entry-content",
+      "insert_position": "inside_first_child",
+      "exclude_slugs": []
+    }
+  ],
+  "version": "2.2.3"
+}
