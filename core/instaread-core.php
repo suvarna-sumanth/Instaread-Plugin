@@ -224,7 +224,8 @@ class InstareadPlayer {
         $ver = time();
         $strat = $this->settings['injection_strategy'];
         $script = "document.addEventListener('DOMContentLoaded',function(){\n";
-    
+        $player_type = isset($this->partner_config['playerType']) ? esc_js($this->partner_config['playerType']) : 'default';
+$color = isset($this->partner_config['color']) ? esc_js($this->partner_config['color']) : '';
         foreach ($this->settings['injection_rules'] as $r) {
             // ✅ Fix: Handle exclude_slugs as array or string
             $exclude_raw = $r['exclude_slugs'] ?? '';
@@ -245,7 +246,7 @@ class InstareadPlayer {
         const w = document.createElement("div");
         w.className = "playerContainer instaread-content-wrapper";
         w.innerHTML = `
-    <instaread-player publication="{$pub}" class="instaread-player">
+    <instaread-player publication="{$pub}" class="instaread-player" playertype="{$player_type}" color="{$color}">
       <div class="instaread-audio-player" style="box-sizing:border-box;margin:0">
         <iframe id="instaread_iframe" width="100%" height="100%" scrolling="no" frameborder="0" loading="lazy" title="Audio Article" style="display:block" data-pin-nopin="true"></iframe>
       </div>
