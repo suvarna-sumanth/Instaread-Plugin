@@ -1,0 +1,18 @@
+{
+  "partner_id": "the-race",
+  "domain": "www.the-race.com",
+  "publication": "the-race",
+  "version": "1.0.0",
+  "playerType": "default",
+  "color": "#3B82F6",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": "#therace-post",
+      "insert_position": "before_element",
+      "exclude_slugs": "",
+      "nth": 0
+    }
+  ]
+}
