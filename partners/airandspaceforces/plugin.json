@@ -1,0 +1,10 @@
+{
+  "name": "Instaread Audio Player - airandspaceforces",
+  "version": "1.0.0",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/airandspaceforces-v1.0.0/airandspaceforces-v1.0.0.zip",
+  "requires": "5.6",
+  "tested": "6.5",
+  "sections": {
+    "changelog": "<h4>1.0.0</h4><ul><li>Partner-specific build for airandspaceforces</li></ul>"
+  }
+}
