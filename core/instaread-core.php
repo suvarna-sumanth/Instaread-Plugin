@@ -3,7 +3,7 @@
  * Plugin Name: Instaread Audio Player
  * Plugin URI: https://instaread.co
  * Description: Auto-injecting audio player with partner configuration support
- * Version: 2.2.0
+ * Version: 2.2.4
  * Author: Instaread Team
  */
 
@@ -216,72 +216,81 @@ class InstareadPlayer {
 }
 
     }
+private function inject_player_script() {
+    global $post;
+    $slug = $post->post_name ?? '';
+    $pub = esc_js($this->settings['publication']);
+    $ver = time();
+    $strat = $this->settings['injection_strategy'];
+    $script = "document.addEventListener('DOMContentLoaded',function(){\n";
+    $player_type = isset($this->partner_config['playerType']) ? esc_js($this->partner_config['playerType']) : 'default';
+    $color = isset($this->partner_config['color']) ? esc_js($this->partner_config['color']) : '';
+    foreach ($this->settings['injection_rules'] as $r) {
+        // Log raw and decoded selector (PHP side)
+        error_log('[InstareadPlayer] Raw selector from config: ' . $r['target_selector']);
+        error_log('[InstareadPlayer] Selector after decode: ' . html_entity_decode($r['target_selector'], ENT_QUOTES | ENT_HTML5));
+        
+        // Sanitize selector for JS
+        $sel = html_entity_decode($r['target_selector'], ENT_QUOTES | ENT_HTML5);
+        $sel = str_replace('"', '\"', $sel); // manually escape quotes
+        $pos = esc_js($r['insert_position']);
+        $inject_all = ($strat === 'all') ? 'true' : 'false';
 
-    private function inject_player_script() {
-        global $post;
-        $slug = $post->post_name ?? '';
-        $pub = esc_js($this->settings['publication']);
-        $ver = time();
-        $strat = $this->settings['injection_strategy'];
-        $script = "document.addEventListener('DOMContentLoaded',function(){\n";
-        $player_type = isset($this->partner_config['playerType']) ? esc_js($this->partner_config['playerType']) : 'default';
-$color = isset($this->partner_config['color']) ? esc_js($this->partner_config['color']) : '';
-        foreach ($this->settings['injection_rules'] as $r) {
-            // ✅ Fix: Handle exclude_slugs as array or string
-            $exclude_raw = $r['exclude_slugs'] ?? '';
-            $exclude_str = is_array($exclude_raw) ? implode(',', $exclude_raw) : $exclude_raw;
-            $ex = array_map('trim', explode(',', $exclude_str));
-            if ($slug && in_array($slug, $ex)) continue;
-    
-            $sel = esc_js($r['target_selector']);
-            $pos = esc_js($r['insert_position']);
-            $inject_all = ($strat === 'all') ? 'true' : 'false';
-    
-            $script .= <<<JS
-    (function(){
-      const els = document.querySelectorAll("{$sel}");
-      if (!els.length) return;
-      const list = ({$inject_all}) ? Array.from(els) : [els[0]];
-      list.forEach(function(t){
-        const w = document.createElement("div");
-        w.className = "playerContainer instaread-content-wrapper";
-        w.innerHTML = `
-    <instaread-player publication="{$pub}" class="instaread-player" playertype="{$player_type}" color="{$color}">
-      <div class="instaread-audio-player" style="box-sizing:border-box;margin:0">
-        <iframe id="instaread_iframe" width="100%" height="100%" scrolling="no" frameborder="0" loading="lazy" title="Audio Article" style="display:block" data-pin-nopin="true"></iframe>
-      </div>
-    </instaread-player>`;
-        const s = document.createElement("script");
-        s.src = "https://instaread.co/js/instaread.{$pub}.js?version={$ver}";
-         s.type = "module";
-        switch("{$pos}") {
-          case "prepend": case "before_element":
-            t.parentNode.insertBefore(w, t);
-            t.parentNode.insertBefore(s, t);
-            break;
-          case "append": case "after_element":
-            t.parentNode.insertBefore(w, t.nextSibling);
-            t.parentNode.insertBefore(s, t.nextSibling);
-            break;
-          case "inside_last_child": case "inside_element":
-            t.appendChild(w);
-            t.appendChild(s);
-            break;
-        case "inside_first_child":
-            t.insertBefore(w, t.firstChild);
-            t.insertBefore(s, t.firstChild);
-            break;
-        }   
-      });
-    })();
-    JS;
-        }
-        $script .= "console.log('[Instaread Player] Injection successful.');\n";
-        $script .= "});";
-        wp_add_inline_script('instaread-player', $script);
-        $this->log('Injected script strategy=' . $strat);
+        // Add JS-side logging and selector usage
+        $script .= <<<JS
+(function(){
+  console.log('[InstareadPlayer JS] Selector sent from PHP: "{$sel}"');
+  try {
+    const els = document.querySelectorAll("{$sel}");
+    console.log('[InstareadPlayer JS] querySelectorAll executed for selector:', "{$sel}");
+    if (!els.length) {
+      console.warn('[InstareadPlayer JS] No elements found for selector:', "{$sel}");
+      return;
     }
-    
+    const list = ({$inject_all}) ? Array.from(els) : [els[0]];
+    list.forEach(function(t){
+      const w = document.createElement("div");
+      w.className = "playerContainer instaread-content-wrapper";
+      w.innerHTML = `
+<instaread-player publication="{$pub}" class="instaread-player" playertype="{$player_type}" color="{$color}">
+  <div class="instaread-audio-player" style="box-sizing:border-box;margin:0">
+    <iframe id="instaread_iframe" width="100%" height="100%" scrolling="no" frameborder="0" loading="lazy" title="Audio Article" style="display:block" data-pin-nopin="true"></iframe>
+  </div>
+</instaread-player>`;
+      const s = document.createElement("script");
+      s.src = "http://localhost:3001/js/instaread.local.js";
+      s.type = "module";
+      switch("{$pos}") {
+        case "prepend": case "before_element":
+          t.parentNode.insertBefore(w, t);
+          t.parentNode.insertBefore(s, t);
+          break;
+        case "append": case "after_element":
+          t.parentNode.insertBefore(w, t.nextSibling);
+          t.parentNode.insertBefore(s, t.nextSibling);
+          break;
+        case "inside_last_child": case "inside_element":
+          t.appendChild(w);
+          t.appendChild(s);
+          break;
+        case "inside_first_child":
+          t.insertBefore(w, t.firstChild);
+          t.insertBefore(s, t.firstChild);
+          break;
+      }   
+    });
+  } catch (e) {
+    console.error('[InstareadPlayer JS] querySelectorAll failed for selector:', "{$sel}", e);
+  }
+})();
+JS;
+    }
+    $script .= "console.log('[Instaread Player] Injection successful.');\n";
+    $script .= "});";
+    wp_add_inline_script('instaread-player', $script);
+    $this->log('Injected script strategy=' . $strat);
+}
+
     public function add_resource_hints($urls,$rel) {
         if ($rel==='preconnect') $urls[]='https://instaread.co';
         return array_unique($urls);
