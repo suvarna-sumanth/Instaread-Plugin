@@ -1,0 +1,18 @@
+{
+  "partner_id": "jcitytimesss",
+  "domain": "jcitytimesss.com",
+  "publication": "jcitytimesss",
+  "version": "2.2.4",
+  "playerType": "default",
+  "color": "#f7c53b",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": "div.entry-content > p",
+      "insert_position": "before_element",
+      "exclude_slugs": "",
+      "nth": 0
+    }
+  ]
+}
