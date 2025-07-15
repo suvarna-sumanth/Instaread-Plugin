@@ -223,7 +223,7 @@ private function inject_player_script() {
     $ver = time();
     $strat = $this->settings['injection_strategy'];
     $script = "document.addEventListener('DOMContentLoaded',function(){\n";
-    $player_type = isset($this->partner_config['playerType']) ? esc_js($this->partner_config['playerType']) : 'default';
+    $player_type = isset($this->partner_config['playerType']) ? esc_js($this->partner_config['playerType']) : '';
     $color = isset($this->partner_config['color']) ? esc_js($this->partner_config['color']) : '';
     foreach ($this->settings['injection_rules'] as $r) {
         // Log raw and decoded selector (PHP side)
@@ -258,7 +258,7 @@ private function inject_player_script() {
   </div>
 </instaread-player>`;
       const s = document.createElement("script");
-      s.src = "http://localhost:3001/js/instaread.local.js";
+      s.src = "https://instaread.co/js/instaread.{$pub}.js";
       s.type = "module";
       switch("{$pos}") {
         case "prepend": case "before_element":

@@ -1,0 +1,15 @@
+{
+  "partner_id": "levernews",
+  "domain": "levernews.com",
+  "publication": "levernews",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": ".post-content",
+      "insert_position": "inside_first_child",
+      "exclude_slugs": []
+    }
+  ],
+  "version": "2.2.4"
+}
