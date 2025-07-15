@@ -1,0 +1,18 @@
+{
+  "partner_id": "airandspaceforces",
+  "domain": "www.airandspaceforces.com",
+  "publication": "airandspaceforces",
+  "version": "1.0.0",
+  "playerType": "default",
+  "color": "#3B82F6",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": "div.post-body",
+      "insert_position": "before_element",
+      "exclude_slugs": "",
+      "nth": 0
+    }
+  ]
+}
