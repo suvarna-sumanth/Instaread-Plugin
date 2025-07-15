@@ -29,6 +29,25 @@ jobs:
             exit 1
           fi
 
+      - name: Generate partner plugin.json
+        run: |
+          PARTNER_ID="${{ github.event.inputs.partner_id }}"
+          VERSION="${{ github.event.inputs.version }}"
+          REPO_URL="https://github.com/${{ github.repository }}"
+
+          cat > partners/${PARTNER_ID}/plugin.json << EOF
+          {
+            "name": "Instaread Audio Player - ${PARTNER_ID}",
+            "version": "${VERSION}",
+            "download_url": "${REPO_URL}/releases/download/${PARTNER_ID}-v${VERSION}/${PARTNER_ID}-v${VERSION}.zip",
+            "requires": "5.6",
+            "tested": "6.5",
+            "sections": {
+              "changelog": "<h4>${VERSION}</h4><ul><li>Partner-specific build for ${PARTNER_ID}</li></ul>"
+            }
+          }
+          EOF
+
       - name: Build partner plugin
         run: |
           PARTNER_ID="${{ github.event.inputs.partner_id }}"
@@ -51,10 +70,12 @@ jobs:
           # Copy partner-specific JS
           cp partners/${PARTNER_ID}/partner.js ${BUILD_DIR}/ 2>/dev/null || true
 
+          # Copy plugin.json into build directory
+          cp partners/${PARTNER_ID}/plugin.json ${BUILD_DIR}/
+
           # Update plugin header with partner info
           sed -i "s/Plugin Name: Instaread Audio Player/Plugin Name: Instaread Audio Player - ${PARTNER_ID}/" ${BUILD_DIR}/instaread-core.php
           sed -i "s/Version: [0-9.]*/Version: ${VERSION}/" ${BUILD_DIR}/instaread-core.php
-
 
           # List contents for debugging
           echo "Build directory contents:"
@@ -70,25 +91,6 @@ jobs:
           name: "${{ github.event.inputs.partner_id }} Plugin v${{ github.event.inputs.version }}"
           files: build/${{ github.event.inputs.partner_id }}-v${{ github.event.inputs.version }}.zip
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate partner plugin.json
-        run: |
-          PARTNER_ID="${{ github.event.inputs.partner_id }}"
-          VERSION="${{ github.event.inputs.version }}"
-          REPO_URL="https://github.com/${{ github.repository }}"
-
-          cat > partners/${PARTNER_ID}/plugin.json << EOF
-          {
-            "name": "Instaread Audio Player - ${PARTNER_ID}",
-            "version": "${VERSION}",
-            "download_url": "${REPO_URL}/releases/download/${PARTNER_ID}-v${VERSION}/${PARTNER_ID}-v${VERSION}.zip",
-            "requires": "5.6",
-            "tested": "6.5",
-            "sections": {
-              "changelog": "<h4>${VERSION}</h4><ul><li>Partner-specific build for ${PARTNER_ID}</li></ul>"
-            }
-          }
-          EOF
 
       - name: Commit plugin.json update
         run: |
