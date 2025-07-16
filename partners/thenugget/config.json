@@ -1,0 +1,18 @@
+{
+  "partner_id": "thenugget",
+  "domain": "thenugget.instaread.co",
+  "publication": "thenugget",
+  "version": "2.2.6",
+  "playerType": "default",
+  "color": "#3B82F6",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": "div.entry-content > p",
+      "insert_position": "before_element",
+      "exclude_slugs": "",
+      "nth": 0
+    }
+  ]
+}
