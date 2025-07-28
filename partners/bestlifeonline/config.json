@@ -1,0 +1,15 @@
+{
+  "partner_id": "bestlifeonline",
+  "domain": "bestlifeonline.com",
+  "publication": "bestlifeonline",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": ".content",
+      "insert_position": "prepend",
+      "exclude_slugs": []
+    }
+  ],
+  "version": "2.2.6"
+}

@@ -1,0 +1,15 @@
+{
+  "partner_id": "eatthis",
+  "domain": "eatthis.com",
+  "publication": "eatthis",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": ".content",
+      "insert_position": "inside_first_child",
+      "exclude_slugs": []
+    }
+  ],
+  "version": "2.2.6"
+}

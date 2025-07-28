@@ -1,0 +1,10 @@
+{
+  "name": "Instaread Audio Player - bestlifeonline",
+  "version": "2.2.6",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/bestlifeonline-v2.2.6/bestlifeonline-v2.2.6.zip",
+  "requires": "5.6",
+  "tested": "6.5",
+  "sections": {
+    "changelog": "<h4>2.2.6</h4><ul><li>Partner-specific build for bestlifeonline</li></ul>"
+  }
+}
