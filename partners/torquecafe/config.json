@@ -8,8 +8,23 @@
     {
       "target_selector": ".content-inner",
       "insert_position": "inside_first_child",
-      "exclude_slugs": []
+      "exclude_slugs": [
+        "home",
+        "what-is-torquecafe",
+        "privacy-policy",
+        "our-value",
+        "team",
+        "sitemap",
+        "reviews",
+        "newsletter-registration",
+        "contact-us",
+        "feedback",
+        "advertise-with-us",
+        "becoming-a-partner",
+        "show-rooms",
+        "7"
+      ]
     }
   ],
-  "version": "2.2.2"
+  "version": "2.6.3"
 }
