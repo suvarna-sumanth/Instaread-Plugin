@@ -43,6 +43,8 @@
             add_action('admin_menu', [$this, 'add_settings_page']);
             add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
             add_filter('wp_resource_hints', [$this, 'add_resource_hints'], 10, 2);
+            add_filter('auto_update_plugin', [$this, 'enable_auto_updates'], 10, 2);
+
             $this->maybe_migrate_old_settings();
             $this->log('InstareadPlayer initialized.');
         }
@@ -74,6 +76,15 @@
             $this->plugin_version = $data['Version'] ?? '1.0.0';
             $this->log('Plugin version: ' . $this->plugin_version);
         }
+
+         // Corrected auto-update function
+    public function enable_auto_updates($update, $item) {
+        $plugin_basename = plugin_basename(__FILE__);
+        if (isset($item->plugin) && $item->plugin === $plugin_basename) {
+            return true;
+        }
+        return $update;
+    }
 
         private function get_settings() {
             if ($this->partner_config) {
