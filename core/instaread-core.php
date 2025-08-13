@@ -1,6 +1,6 @@
     <?php
     /**
-     * Plugin Name: Instaread Audio Player - torquecafe
+     * Plugin Name: Instaread Audio Player
      * Plugin URI: https://instaread.co
      * Description: Auto-injecting audio player with partner configuration support
      * Version: 2.6.4
