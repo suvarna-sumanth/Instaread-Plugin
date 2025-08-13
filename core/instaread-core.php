@@ -216,6 +216,7 @@ class InstareadPlayer {
 }
 
     }
+
 private function inject_player_script() {
     global $post;
     $slug = $post->post_name ?? '';
@@ -225,7 +226,17 @@ private function inject_player_script() {
     $script = "document.addEventListener('DOMContentLoaded',function(){\n";
     $player_type = isset($this->partner_config['playerType']) ? esc_js($this->partner_config['playerType']) : '';
     $color = isset($this->partner_config['color']) ? esc_js($this->partner_config['color']) : '';
+
     foreach ($this->settings['injection_rules'] as $r) {
+        // ✅ RESTORED: This block checks the slug and skips injection if it's in the exclusion list.
+        $exclude_raw = $r['exclude_slugs'] ?? '';
+        $exclude_str = is_array($exclude_raw) ? implode(',', $exclude_raw) : $exclude_raw;
+        $ex = array_map('trim', explode(',', $exclude_str));
+        if ($slug && in_array($slug, $ex)) {
+            $this->log("Skipping injection on excluded slug: {$slug}");
+            continue; // This command skips the current page.
+        }
+
         // Log raw and decoded selector (PHP side)
         error_log('[InstareadPlayer] Raw selector from config: ' . $r['target_selector']);
         error_log('[InstareadPlayer] Selector after decode: ' . html_entity_decode($r['target_selector'], ENT_QUOTES | ENT_HTML5));
@@ -285,7 +296,7 @@ private function inject_player_script() {
 })();
 JS;
     }
-    $script .= "console.log('[Instaread Player] Injection successful.');\n";
+    $script .= "console.log('[Instaread Player] Injection script processing complete.');\n";
     $script .= "});";
     wp_add_inline_script('instaread-player', $script);
     $this->log('Injected script strategy=' . $strat);
