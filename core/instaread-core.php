@@ -1,13 +1,13 @@
-    <?php
+<?php
     /**
      * Plugin Name: Instaread Audio Player
      * Plugin URI: https://instaread.co
      * Description: Auto-injecting audio player with partner configuration support
-     * Version: 2.6.4
+     * Version: 2.6.6
      * Author: Instaread Team
      */
 
-    defined('ABSPATH') || exit;
+    defined('ABSPATH') || exit; // Exit if accessed directly
 
     // Load partner configuration if available
     $partner_config_file = __DIR__ . '/config.json';
