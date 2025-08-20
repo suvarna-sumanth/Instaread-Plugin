@@ -1,0 +1,36 @@
+{
+  "partner_id": "dodgerblue",
+  "domain": "dodgerblue.com",
+  "publication": "dodgerblue",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": ".entry-content",
+      "insert_position": "inside_first_child",
+      "exclude_slugs": [
+        "/",
+        "/category/rumors/",
+        "/official-2025-26-lakers-regular-season-schedule/",
+        "/video/",
+        "/faq-frequently-asked-questions/",
+        "/privacy-policy/",
+        "/about/",
+        "/terms-of-service/",
+        "/news/",
+        "/category/games/",
+        "/category/rumors/",
+        "/history/",
+        "/contact/",
+        "/category/news/",
+        "/2025/08/13/7/",
+        "/los-angeles-dodgers-active-roster/",
+        "/los-angeles-dodgers-salaries-payroll-contracts/",
+        "/2025-los-angeles-dodgers-spring-training-schedule-results-tv-information/",
+        "/2025-dodger-stadium-giveaways-bobbleheads-games-hello-kitty-items-jerseys/",
+        "/official-2025-los-angeles-dodgers-schedule-and-results/"
+      ]
+    }
+  ],
+  "version": "2.6.6"
+}

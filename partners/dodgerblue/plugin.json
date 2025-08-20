@@ -1,0 +1,10 @@
+{
+  "name": "Instaread Audio Player - dodgerblue",
+  "version": "2.6.6",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/dodgerblue-v2.6.6/dodgerblue-v2.6.6.zip",
+  "requires": "5.6",
+  "tested": "6.5",
+  "sections": {
+    "changelog": "<h4>2.6.6</h4><ul><li>Partner-specific build for dodgerblue</li></ul>"
+  }
+}
