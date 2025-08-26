@@ -1,10 +1,10 @@
 {
-  "name": "Instaread Audio Player - Angels Nation",
+  "name": "Instaread Audio Player - angelsnation",
   "version": "2.6.6",
   "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/angelsnation-v2.6.6/angelsnation-v2.6.6.zip",
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>2.6.6</h4><ul><li>Partner-specific build for Angels Nation</li></ul>"
+    "changelog": "<h4>2.6.6</h4><ul><li>Partner-specific build for angelsnation</li></ul>"
   }
 }
