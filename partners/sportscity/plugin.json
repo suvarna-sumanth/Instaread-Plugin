@@ -1,10 +1,10 @@
 {
-  "name": "Instaread Audio Player - Sports City",
+  "name": "Instaread Audio Player - sportscity",
   "version": "2.6.6",
   "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/sportscity-v2.6.6/sportscity-v2.6.6.zip",
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>2.6.6</h4><ul><li>Partner-specific build for Sports City</li></ul>"
+    "changelog": "<h4>2.6.6</h4><ul><li>Partner-specific build for sportscity</li></ul>"
   }
 }
