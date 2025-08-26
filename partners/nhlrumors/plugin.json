@@ -1,0 +1,10 @@
+{
+  "name": "Instaread Audio Player - nhlrumors",
+  "version": "2.6.6",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/nhlrumors-v2.6.6/nhlrumors-v2.6.6.zip",
+  "requires": "5.6",
+  "tested": "6.5",
+  "sections": {
+    "changelog": "<h4>2.6.6</h4><ul><li>Partner-specific build for nhlrumors</li></ul>"
+  }
+}
