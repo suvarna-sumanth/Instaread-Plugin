@@ -1,10 +1,10 @@
 {
   "name": "Instaread Audio Player - torquecafe",
-  "version": "2.6.10",
-  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/torquecafe-v2.6.10/torquecafe-v2.6.10.zip",
+  "version": "2.6.12",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/torquecafe-v2.6.12/torquecafe-v2.6.12.zip",
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>2.6.10</h4><ul><li>Partner-specific build for torquecafe</li></ul>"
+    "changelog": "<h4>2.6.12</h4><ul><li>Partner-specific build for torquecafe</li></ul>"
   }
 }
