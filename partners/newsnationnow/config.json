@@ -6,7 +6,7 @@
   "injection_strategy": "first",
   "injection_rules": [
     {
-      "target_selector": ".entry-content",
+      "target_selector": ".article-content",
       "insert_position": "inside_first_child",
       "exclude_slugs": [
         "/",
