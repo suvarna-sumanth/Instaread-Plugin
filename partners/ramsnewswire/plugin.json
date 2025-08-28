@@ -1,10 +1,10 @@
 {
-  "name": "Instaread Audio Player - Rams Newswire",
+  "name": "Instaread Audio Player - ramsnewswire",
   "version": "2.6.6",
   "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/ramsnewswire-v2.6.6/ramsnewswire-v2.6.6.zip",
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>2.6.6</h4><ul><li>Partner-specific build for Rams Newswire</li></ul>"
+    "changelog": "<h4>2.6.6</h4><ul><li>Partner-specific build for ramsnewswire</li></ul>"
   }
 }
