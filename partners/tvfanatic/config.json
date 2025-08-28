@@ -1,0 +1,24 @@
+{
+  "partner_id": "tvfanatic",
+  "domain": "tvfanatic.com",
+  "publication": "tvfanatic",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": ".entry-content",
+      "insert_position": "inside_first_child",
+      "exclude_slugs": [
+        "/",
+        "contact",
+        "about",
+        "privacy-policy",
+        "terms",
+        "/our-team/",
+        "/terms-and-conditions/",
+        "/about-us/"
+      ]
+    }
+  ],
+  "version": "2.6.12"
+}

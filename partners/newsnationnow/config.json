@@ -1,0 +1,22 @@
+{
+  "partner_id": "newsnationnow",
+  "domain": "newsnationnow.com",
+  "publication": "newsnationnow",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": ".entry-content",
+      "insert_position": "inside_first_child",
+      "exclude_slugs": [
+        "/",
+        "/about/",
+        "/contact-us/",
+        "/meet-the-team/",
+        "/newsnation-tv-schedule/",
+        "/closed-captioning/"
+      ]
+    }
+  ],
+  "version": "2.6.12"
+}
