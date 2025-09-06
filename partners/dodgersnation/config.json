@@ -29,9 +29,13 @@
         "dodger-stadium/",
         "/contact-new/",
         "/dodger-stadium/tripplanner/",
-        "/parking/"
+        "/parking/",
+        "/dodgers-payroll/",
+        "/directory/",
+        "/schedule/",
+        "/fancave/"
       ]
     }
   ],
-  "version": "2.6.12"
+  "version": "2.6.14"
 }
