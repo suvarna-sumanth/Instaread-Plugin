@@ -282,8 +282,9 @@
         <iframe id="instaread_iframe" width="100%" height="100%" scrolling="no" frameborder="0" loading="lazy" title="Audio Article" style="display:block" data-pin-nopin="true"></iframe>
     </div>
     </instaread-player>`;
+    const ir_version = Math.floor(Date.now() / 60000) * 60000;
         const s = document.createElement("script");
-        s.src = "https://instaread.co/js/instaread.{$pub}.js";
+        s.src = "https://instaread.co/js/instaread.{$pub}.js?version=" + ir_version;
         s.type = "module";
         switch("{$pos}") {
             case "prepend": case "before_element":
