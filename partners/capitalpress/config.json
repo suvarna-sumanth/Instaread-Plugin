@@ -1,0 +1,36 @@
+{
+  "partner_id": "capitalpress",
+  "domain": "capitalpress.com",
+  "publication": "capitalpress",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": "#article_content",
+      "insert_position": "inside_first_child",
+      "exclude_slugs": [
+        "/",
+        "/category/rumors/",
+        "/official-2025-26-lakers-regular-season-schedule/",
+        "/video/",
+        "/faq-frequently-asked-questions/",
+        "/privacy-policy/",
+        "/about/",
+        "/terms-of-service/",
+        "/news/",
+        "/category/games/",
+        "/history/",
+        "/contact/",
+        "/category/news/",
+        "/about-us/",
+        "/contact-us/",
+        "/services/",
+        "/category/growers-guide/",
+        "/nation-world/",
+        "/category/localstate/state/",
+        "/category/ag-sectors/"
+      ]
+    }
+  ],
+  "version": "2.6.14"
+}
