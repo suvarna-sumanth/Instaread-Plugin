@@ -3,7 +3,7 @@
  * Plugin Name: Instaread Audio Player
  * Plugin URI: https://instaread.co
  * Description: Auto-injecting audio player with partner configuration support
- * Version: 2.6.6
+ * Version: 2.7.0
  * Author: Instaread Team
  */
 
@@ -202,11 +202,11 @@ class InstareadPlayer {
     public function enqueue_assets() {
         global $post;
         $ctx = $this->settings['injection_context'];
-        $ok = ($ctx==='all') || ($ctx==='singular' && is_singular());
+        $ok = ($ctx === 'all') || ($ctx === 'singular' && is_singular()) || ($ctx === 'archive' && is_archive()) || ($ctx === 'front_page' && is_front_page()) || ($ctx === 'posts_page' && is_home());
         if (!$ok || !is_main_query()) return;
-        if ($this->settings['injection_strategy']==='none') return;
+        if ($this->settings['injection_strategy'] === 'none') return;
 
-        wp_register_script('instaread-player','',[],null,true);
+        wp_register_script('instaread-player', '', [], null, true);
         wp_enqueue_script('instaread-player');
 
         if (
@@ -231,17 +231,23 @@ class InstareadPlayer {
         global $post;
         $pub = esc_js($this->settings['publication']);
         $strat = $this->settings['injection_strategy'];
-        $script = "document.addEventListener('DOMContentLoaded',function(){\n";
+        
+        // New variables from config
+        $is_playlist = isset($this->partner_config['isPlaylist']) ? $this->partner_config['isPlaylist'] : false;
+        $playlist_height = isset($this->partner_config['playlist_height']) ? esc_js($this->partner_config['playlist_height']) : '80vh';
+        $container_height = isset($this->partner_config['container_height']) ? esc_js($this->partner_config['container_height']) : '144px';
+        
         $player_type = isset($this->partner_config['playerType']) ? esc_js($this->partner_config['playerType']) : '';
         $color = isset($this->partner_config['color']) ? esc_js($this->partner_config['color']) : '';
 
+        $script = "document.addEventListener('DOMContentLoaded',function(){\n";
+
         foreach ($this->settings['injection_rules'] as $r) {
-            // Convert exclude_slugs string to array
             $exclude_paths = $r['exclude_slugs'] ?? [];
             if (is_string($exclude_paths)) {
                 $exclude_paths = array_map('trim', explode(',', $exclude_paths));
             }
-            $exclude_paths_json = json_encode($exclude_paths);
+            $exclude_paths_json = json_encode(array_values(array_filter($exclude_paths)));
 
             $sel = html_entity_decode($r['target_selector'], ENT_QUOTES | ENT_HTML5);
             $sel = addslashes($sel);
@@ -251,7 +257,7 @@ class InstareadPlayer {
             $script .= <<<JS
 (function(){
     const pathsToExclude = {$exclude_paths_json};
-    const currentPath = window.location.pathname.replace(/\/$/, '');
+    const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
     if (pathsToExclude.some(p => p.replace(/\/$/, '') === currentPath)) {
         console.log('[InstareadPlayer JS] Player injection skipped on excluded path:', currentPath);
         return;
@@ -259,21 +265,65 @@ class InstareadPlayer {
     console.log('[InstareadPlayer JS] Selector: "{$sel}"');
     try {
         const els = document.querySelectorAll("{$sel}");
-        if (!els.length) return;
+        if (!els.length) { console.log('[InstareadPlayer JS] Target selector not found.'); return; }
         const list = ({$inject_all}) ? Array.from(els) : [els[0]];
-        list.forEach(function(t){
+
+        list.forEach(function(t, i){
+            if (t.querySelector('.instaread-player-injected')) {
+                console.log('[InstareadPlayer JS] Player already injected in this target.');
+                return;
+            }
+JS;
+            if ($is_playlist) {
+                // Playlist Injection Logic
+                $script .= <<<JS
+            const playerEl = document.createElement("instaread-player");
+            playerEl.setAttribute("publication", "{$pub}");
+            playerEl.setAttribute("p_type", "playlist");
+            playerEl.setAttribute("height", "{$playlist_height}");
+            playerEl.classList.add('instaread-player-injected');
+
+            const playlistScript = document.createElement("script");
+            playlistScript.type = "module";
+            playlistScript.crossOrigin = true;
+            playlistScript.src = "https://instaread.co/js/v2/instaread.playlist.js";
+
+            switch("{$pos}") {
+                case "prepend": case "before_element":
+                    t.parentNode.insertBefore(playerEl, t);
+                    t.parentNode.insertBefore(playlistScript, t);
+                    break;
+                case "append": case "after_element":
+                    t.parentNode.insertBefore(playerEl, t.nextSibling);
+                    t.parentNode.insertBefore(playlistScript, t.nextSibling);
+                    break;
+                case "inside_last_child": case "inside_element":
+                    t.appendChild(playlistScript);
+                    t.appendChild(playerEl);
+                    break;
+                case "inside_first_child":
+                    t.insertBefore(playerEl, t.firstChild);
+                    t.insertBefore(playlistScript, t.firstChild);
+                    break;
+            }
+JS;
+            } else {
+                // Default/Legacy Player Injection Logic
+                $script .= <<<JS
             const w = document.createElement("div");
-            w.className = "playerContainer instaread-content-wrapper";
+            w.className = "playerContainer instaread-content-wrapper instaread-player-injected";
+            w.style.minHeight = "{$container_height}" || "144px";
             w.innerHTML = `
-<instaread-player publication="{$pub}" class="instaread-player" playertype="{$player_type}" color="{$color}">
-<div class="instaread-audio-player" style="box-sizing:border-box;margin:0">
-<iframe id="instaread_iframe" width="100%" height="100%" scrolling="no" frameborder="0" loading="lazy" title="Audio Article" style="display:block" data-pin-nopin="true"></iframe>
-</div>
-</instaread-player>`;
+                        <instaread-player publication="{$pub}" class="instaread-player" playertype="{$player_type}" color="{$color}">
+                        <div class="instaread-audio-player" style="box-sizing:border-box;margin:0">
+                        <iframe id="instaread_iframe" width="100%" height="100%" scrolling="no" frameborder="0" loading="lazy" title="Audio Article" style="display:block" data-pin-nopin="true"></iframe>
+                        </div>
+                        </instaread-player>`;
             const ir_version = Math.floor(Date.now() / 60000) * 60000;
             const s = document.createElement("script");
             s.src = "https://instaread.co/js/instaread.{$pub}.js?version=" + ir_version;
             s.type = "module";
+
             switch("{$pos}") {
                 case "prepend": case "before_element":
                     t.parentNode.insertBefore(w, t);
@@ -291,7 +341,10 @@ class InstareadPlayer {
                     t.insertBefore(w, t.firstChild);
                     t.insertBefore(s, t.firstChild);
                     break;
-            }   
+            }
+JS;
+            }
+            $script .= <<<JS
         });
     } catch (e) {
         console.error('[InstareadPlayer JS] querySelectorAll failed for selector:', "{$sel}", e);
@@ -302,23 +355,25 @@ JS;
         $script .= "console.log('[Instaread Player] Injection script complete.');\n";
         $script .= "});";
         wp_add_inline_script('instaread-player', $script);
-        $this->log('Injected script strategy=' . $strat);
+        $this->log('Injected script strategy=' . $strat . ', isPlaylist=' . ($is_playlist ? 'true' : 'false'));
     }
 
-    public function add_resource_hints($urls,$rel) {
-        if ($rel==='preconnect') $urls[]='https://instaread.co';
+    public function add_resource_hints($urls, $rel) {
+        if ($rel === 'preconnect') {
+            $urls[] = 'https://instaread.co';
+        }
         return array_unique($urls);
     }
 
     public function sanitize_settings($in) {
         return [
-            'publication'=>sanitize_text_field($in['publication'] ?? ''),
-            'target_selector'=>sanitize_text_field($in['target_selector'] ?? ''),
-            'insert_position'=>sanitize_text_field($in['insert_position'] ?? 'append'),
-            'exclude_slugs'=>sanitize_text_field($in['exclude_slugs'] ?? ''),
-            'injection_context'=>in_array($in['injection_context'] ?? '', ['all','singular','archive','front_page','posts_page']) 
+            'publication' => sanitize_text_field($in['publication'] ?? ''),
+            'target_selector' => sanitize_text_field($in['target_selector'] ?? ''),
+            'insert_position' => sanitize_text_field($in['insert_position'] ?? 'append'),
+            'exclude_slugs' => sanitize_text_field($in['exclude_slugs'] ?? ''),
+            'injection_context' => in_array($in['injection_context'] ?? '', ['all', 'singular', 'archive', 'front_page', 'posts_page'])
                 ? $in['injection_context'] : 'singular',
-            'injection_strategy'=>in_array($in['injection_strategy'] ?? '', ['first','all','none','custom']) 
+            'injection_strategy' => in_array($in['injection_strategy'] ?? '', ['first', 'all', 'none', 'custom'])
                 ? $in['injection_strategy'] : 'first',
         ];
     }
@@ -327,12 +382,12 @@ JS;
         $old = get_option('instaread_legacy_settings', false);
         if ($old) {
             $new = [
-                'publication'=>$old['publication'] ?? '',
-                'target_selector'=>$old['target_selector'] ?? '',
-                'insert_position'=>$old['insert_position'] ?? '',
-                'exclude_slugs'=>$old['exclude_slugs'] ?? '',
-                'injection_context'=>$old['injection_context'] ?? '',
-                'injection_strategy'=>'first',
+                'publication' => $old['publication'] ?? '',
+                'target_selector' => $old['target_selector'] ?? '',
+                'insert_position' => $old['insert_position'] ?? '',
+                'exclude_slugs' => $old['exclude_slugs'] ?? '',
+                'injection_context' => $old['injection_context'] ?? '',
+                'injection_strategy' => 'first',
             ];
             update_option('instaread_settings', $new);
             delete_option('instaread_legacy_settings');

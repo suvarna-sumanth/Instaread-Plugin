@@ -1,0 +1,34 @@
+{
+  "partner_id": "moonandspoonandyum",
+  "domain": "moonandspoonandyum.com",
+  "publication": "moonandspoonandyum",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "container_height": "85px",
+  "injection_rules": [
+    {
+      "target_selector": ".wprm-recipe-snippet",
+      "insert_position": "inside_first_child",
+      "exclude_slugs": [
+        "/",
+        "/category/rumors/",
+        "/official-2025-26-lakers-regular-season-schedule/",
+        "/video/",
+        "/faq-frequently-asked-questions/",
+        "/privacy-policy/",
+        "/about/",
+        "/terms-of-service/",
+        "/news/",
+        "/category/games/",
+        "/category/rumors/",
+        "/history/",
+        "/contact/",
+        "/2025/08/13/7/",
+        "/accessibility/",
+        "/blog/",
+        "/recipe-index/"
+      ]
+    }
+  ],
+  "version": "2.6.16"
+}
