@@ -8,7 +8,7 @@
   "injection_rules": [
     {
       "target_selector": ".wprm-recipe-snippet",
-      "insert_position": "inside_first_child",
+      "insert_position": "append",
       "exclude_slugs": [
         "/",
         "/category/rumors/",
