@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>2.8.0</h4><ul><li>Partner-specific build for moonandspoonandyum</li></ul>"
+    "changelog": "<h4>2.8.0</h4><ul><li><strong>Enhancement</strong>: Added a second injection location to place the audio player above the first paragraph of articles.</li><li><strong>Improvement</strong>: Updated injection logic to be more resilient to changes in page layout, ensuring correct player placement.</li></ul>"
   }
 }
