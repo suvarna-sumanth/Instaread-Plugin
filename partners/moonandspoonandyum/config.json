@@ -28,6 +28,29 @@
         "/blog/",
         "/recipe-index/"
       ]
+    },
+    {
+      "target_selector": ".single-content p:first-of-type",
+      "insert_position": "prepend",
+      "exclude_slugs": [
+        "/",
+        "/category/rumors/",
+        "/official-2025-26-lakers-regular-season-schedule/",
+        "/video/",
+        "/faq-frequently-asked-questions/",
+        "/privacy-policy/",
+        "/about/",
+        "/terms-of-service/",
+        "/news/",
+        "/category/games/",
+        "/category/rumors/",
+        "/history/",
+        "/contact/",
+        "/2025/08/13/7/",
+        "/accessibility/",
+        "/blog/",
+        "/recipe-index/"
+      ]
     }
   ],
   "version": "2.6.16"
