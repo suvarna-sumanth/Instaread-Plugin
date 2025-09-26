@@ -228,34 +228,40 @@ class InstareadPlayer {
     }
 
     private function inject_player_script() {
-        global $post;
-        $pub = esc_js($this->settings['publication']);
-        $strat = $this->settings['injection_strategy'];
-        
-        // New variables from config
-        $is_playlist = isset($this->partner_config['isPlaylist']) ? $this->partner_config['isPlaylist'] : false;
-        $playlist_height = isset($this->partner_config['playlist_height']) ? esc_js($this->partner_config['playlist_height']) : '80vh';
-        $container_height = isset($this->partner_config['container_height']) ? esc_js($this->partner_config['container_height']) : '144px';
-        
-        $player_type = isset($this->partner_config['playerType']) ? esc_js($this->partner_config['playerType']) : '';
-        $color = isset($this->partner_config['color']) ? esc_js($this->partner_config['color']) : '';
+    global $post;
+    $pub = esc_js($this->settings['publication']);
+    $strat = $this->settings['injection_strategy'];
+    
+    // New variables from config
+    $is_playlist = isset($this->partner_config['isPlaylist']) ? $this->partner_config['isPlaylist'] : false;
+    $playlist_height = isset($this->partner_config['playlist_height']) ? esc_js($this->partner_config['playlist_height']) : '80vh';
+    $container_height = isset($this->partner_config['container_height']) ? esc_js($this->partner_config['container_height']) : '144px';
+    
+    $player_type = isset($this->partner_config['playerType']) ? esc_js($this->partner_config['playerType']) : '';
+    $color = isset($this->partner_config['color']) ? esc_js($this->partner_config['color']) : '';
 
-        $script = "document.addEventListener('DOMContentLoaded',function(){\n";
+    $script = "document.addEventListener('DOMContentLoaded',function(){\n";
 
-        foreach ($this->settings['injection_rules'] as $r) {
-            $exclude_paths = $r['exclude_slugs'] ?? [];
-            if (is_string($exclude_paths)) {
-                $exclude_paths = array_map('trim', explode(',', $exclude_paths));
-            }
-            $exclude_paths_json = json_encode(array_values(array_filter($exclude_paths)));
+    foreach ($this->settings['injection_rules'] as $r) {
+        $exclude_paths = $r['exclude_slugs'] ?? [];
+        if (is_string($exclude_paths)) {
+            $exclude_paths = array_map('trim', explode(',', $exclude_paths));
+        }
+        $exclude_paths_json = json_encode(array_values(array_filter($exclude_paths)));
 
-            $sel = html_entity_decode($r['target_selector'], ENT_QUOTES | ENT_HTML5);
-            $sel = addslashes($sel);
-            $pos = esc_js($r['insert_position']);
-            $inject_all = ($strat === 'all') ? 'true' : 'false';
+        $sel = html_entity_decode($r['target_selector'], ENT_QUOTES | ENT_HTML5);
+        $sel = addslashes($sel);
+        $pos = esc_js($r['insert_position']);
+        $inject_all = ($strat === 'all') ? 'true' : 'false';
 
-            $script .= <<<JS
+        $script .= <<<JS
 (function(){
+    // Check if a player has already been injected anywhere on the page
+    if (document.querySelector('.instaread-player-injected')) {
+        console.log('[InstareadPlayer JS] Player already exists, skipping rule for selector: "{$sel}"');
+        return;
+    }
+
     const pathsToExclude = {$exclude_paths_json};
     const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
     if (pathsToExclude.some(p => p.replace(/\/$/, '') === currentPath)) {
@@ -274,9 +280,9 @@ class InstareadPlayer {
                 return;
             }
 JS;
-            if ($is_playlist) {
-                // Playlist Injection Logic
-                $script .= <<<JS
+        if ($is_playlist) {
+            // Playlist Injection Logic
+            $script .= <<<JS
             const playerEl = document.createElement("instaread-player");
             playerEl.setAttribute("publication", "{$pub}");
             playerEl.setAttribute("p_type", "playlist");
@@ -307,18 +313,18 @@ JS;
                     break;
             }
 JS;
-            } else {
-                // Default/Legacy Player Injection Logic
-                $script .= <<<JS
+        } else {
+            // Default/Legacy Player Injection Logic
+            $script .= <<<JS
             const w = document.createElement("div");
             w.className = "playerContainer instaread-content-wrapper instaread-player-injected";
             w.style.minHeight = "{$container_height}" || "144px";
             w.innerHTML = `
-                        <instaread-player publication="{$pub}" class="instaread-player" playertype="{$player_type}" color="{$color}">
-                        <div class="instaread-audio-player" style="box-sizing:border-box;margin:0">
-                        <iframe id="instaread_iframe" width="100%" height="100%" scrolling="no" frameborder="0" loading="lazy" title="Audio Article" style="display:block" data-pin-nopin="true"></iframe>
-                        </div>
-                        </instaread-player>`;
+                            <instaread-player publication="{$pub}" class="instaread-player" playertype="{$player_type}" color="{$color}">
+                            <div class="instaread-audio-player" style="box-sizing:border-box;margin:0">
+                            <iframe id="instaread_iframe" width="100%" height="100%" scrolling="no" frameborder="0" loading="lazy" title="Audio Article" style="display:block" data-pin-nopin="true"></iframe>
+                            </div>
+                            </instaread-player>`;
             const ir_version = Math.floor(Date.now() / 60000) * 60000;
             const s = document.createElement("script");
             s.src = "https://instaread.co/js/instaread.{$pub}.js?version=" + ir_version;
@@ -343,20 +349,21 @@ JS;
                     break;
             }
 JS;
-            }
-            $script .= <<<JS
+        }
+        $script .= <<<JS
         });
     } catch (e) {
         console.error('[InstareadPlayer JS] querySelectorAll failed for selector:', "{$sel}", e);
     }
 })();
 JS;
-        }
-        $script .= "console.log('[Instaread Player] Injection script complete.');\n";
-        $script .= "});";
-        wp_add_inline_script('instaread-player', $script);
-        $this->log('Injected script strategy=' . $strat . ', isPlaylist=' . ($is_playlist ? 'true' : 'false'));
     }
+    $script .= "console.log('[Instaread Player] Injection script complete.');\n";
+    $script .= "});";
+    wp_add_inline_script('instaread-player', $script);
+    $this->log('Injected script strategy=' . $strat . ', isPlaylist=' . ($is_playlist ? 'true' : 'false'));
+}
+
 
     public function add_resource_hints($urls, $rel) {
         if ($rel === 'preconnect') {
