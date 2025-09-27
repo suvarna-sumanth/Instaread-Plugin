@@ -202,7 +202,7 @@ class InstareadPlayer {
     public function enqueue_assets() {
         global $post;
         $ctx = $this->settings['injection_context'];
-        $ok = ($ctx === 'all') || ($ctx === 'singular' && is_singular()) || ($ctx === 'archive' && is_archive()) || ($ctx === 'front_page' && is_front_page()) || ($ctx === 'posts_page' && is_home());
+        $ok = ($ctx === 'all') || ($ctx === 'singular' && is_singular()  && !is_front_page()) || ($ctx === 'archive' && is_archive()) || ($ctx === 'front_page' && is_front_page()) || ($ctx === 'posts_page' && is_home());
         if (!$ok || !is_main_query()) return;
         if ($this->settings['injection_strategy'] === 'none') return;
 
