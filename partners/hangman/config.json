@@ -1,0 +1,43 @@
+{
+  "partner_id": "hangman",
+  "domain": "hangman-network",
+  "dynamic_publication_from_host": true,
+  "publication": "",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "container_height": "144px",
+  "injection_rules": [
+    {
+      "target_selector": ".entry-meta",
+      "insert_position": "append",
+      "exclude_slugs": [
+        "/",
+        "/category/rumors/",
+        "/official-2025-26-lakers-regular-season-schedule/",
+        "/video/",
+        "/faq-frequently-asked-questions/",
+        "/privacy-policy/",
+        "/about/",
+        "/terms-of-service/",
+        "/bars/",
+        "/staff/",
+        "/category/rumors/",
+        "/ethics-standard-and-corrections-policy/",
+        "/contact/",
+        "/2025/08/13/7/",
+        "/golden-knights-nation/",
+        "/video",
+        "/frequently-asked-questions/",
+        "dodger-stadium/",
+        "/contact-new/",
+        "/dodger-stadium/tripplanner/",
+        "/parking/",
+        "/dodgers-payroll/",
+        "/directory/",
+        "/schedule/",
+        "/fancave/"
+      ]
+    }
+  ],
+  "version": "2.8.0"
+}

@@ -228,40 +228,65 @@ class InstareadPlayer {
     }
 
     private function inject_player_script() {
-    global $post;
-    $pub = esc_js($this->settings['publication']);
-    $strat = $this->settings['injection_strategy'];
-    
-    // New variables from config
-    $is_playlist = isset($this->partner_config['isPlaylist']) ? $this->partner_config['isPlaylist'] : false;
-    $playlist_height = isset($this->partner_config['playlist_height']) ? esc_js($this->partner_config['playlist_height']) : '80vh';
-    $container_height = isset($this->partner_config['container_height']) ? esc_js($this->partner_config['container_height']) : '144px';
-    
-    $player_type = isset($this->partner_config['playerType']) ? esc_js($this->partner_config['playerType']) : '';
-    $color = isset($this->partner_config['color']) ? esc_js($this->partner_config['color']) : '';
+        global $post;
 
-    $script = "document.addEventListener('DOMContentLoaded',function(){\n";
-
-    foreach ($this->settings['injection_rules'] as $r) {
-        $exclude_paths = $r['exclude_slugs'] ?? [];
-        if (is_string($exclude_paths)) {
-            $exclude_paths = array_map('trim', explode(',', $exclude_paths));
+        // --- New for Testing --- Check for a mock host URL parameter
+        $mock_host = null;
+        if (isset($_GET['instaread_mock_host']) && !empty($_GET['instaread_mock_host'])) {
+            // Sanitize the input to prevent XSS and pass it to JS
+            $mock_host = sanitize_text_field($_GET['instaread_mock_host']);
         }
-        $exclude_paths_json = json_encode(array_values(array_filter($exclude_paths)));
+        
+        // Get base settings from config
+        $dynamic_pub_from_host = isset($this->partner_config['dynamic_publication_from_host']) ? $this->partner_config['dynamic_publication_from_host'] : false;
+        $base_publication = esc_js($this->settings['publication']);
+        $strat = $this->settings['injection_strategy'];
+        $is_playlist = isset($this->partner_config['isPlaylist']) ? $this->partner_config['isPlaylist'] : false;
+        $playlist_height = isset($this->partner_config['playlist_height']) ? esc_js($this->partner_config['playlist_height']) : '80vh';
+        $container_height = isset($this->partner_config['container_height']) ? esc_js($this->partner_config['container_height']) : '144px';
+        $player_type = isset($this->partner_config['playerType']) ? esc_js($this->partner_config['playerType']) : '';
+        $color = isset($this->partner_config['color']) ? esc_js($this->partner_config['color']) : '';
 
-        $sel = html_entity_decode($r['target_selector'], ENT_QUOTES | ENT_HTML5);
-        $sel = addslashes($sel);
-        $pos = esc_js($r['insert_position']);
-        $inject_all = ($strat === 'all') ? 'true' : 'false';
+        $script = "document.addEventListener('DOMContentLoaded',function(){\n";
 
-        $script .= <<<JS
+        // --- New for Testing --- Pass the mock host (or null) to JavaScript
+        $script .= "    const mockHost = " . ($mock_host ? "'" . esc_js($mock_host) . "'" : 'null') . ";\n";
+        
+        $script .= "    let dynamicPublicationFromHost = " . ($dynamic_pub_from_host ? 'true' : 'false') . ";\n";
+        $script .= "    let publication = '{$base_publication}';\n";
+
+        // --- Modified --- JavaScript block to use mock host if available
+        $script .= "    if (dynamicPublicationFromHost) {\n";
+        $script .= "        try {\n";
+        $script .= "            const hostname = mockHost || window.location.hostname;\n";
+        $script .= "            if (mockHost) { console.log('[InstareadPlayer JS] Using MOCKED hostname for testing:', hostname); }\n";
+        $script .= "            let pubFromHost = hostname.split('.')[0];\n";
+        $script .= "            console.log('[InstareadPlayer JS] Derived publication from hostname:', pubFromHost);\n";
+        $script .= "            if (pubFromHost && pubFromHost.length > 0) {\n";
+        $script .= "                publication = pubFromHost;\n";
+        $script .= "            }\n";
+        $script .= "        } catch (e) { console.error('Error deriving publication from hostname', e); }\n";
+        $script .= "    }\n";
+
+        // The rest of the function remains the same...
+        foreach ($this->settings['injection_rules'] as $r) {
+            $exclude_paths = $r['exclude_slugs'] ?? [];
+            if (is_string($exclude_paths)) {
+                $exclude_paths = array_map('trim', explode(',', $exclude_paths));
+            }
+            $exclude_paths_json = json_encode(array_values(array_filter($exclude_paths)));
+
+            $sel = html_entity_decode($r['target_selector'], ENT_QUOTES | ENT_HTML5);
+            $sel = addslashes($sel);
+            $pos = esc_js($r['insert_position']);
+            $inject_all = ($strat === 'all') ? 'true' : 'false';
+
+            $script .= <<<JS
 (function(){
-    // Check if a player has already been injected anywhere on the page
     if (document.querySelector('.instaread-player-injected')) {
         console.log('[InstareadPlayer JS] Player already exists, skipping rule for selector: "{$sel}"');
         return;
     }
-
     const pathsToExclude = {$exclude_paths_json};
     const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
     if (pathsToExclude.some(p => p.replace(/\/$/, '') === currentPath)) {
@@ -280,90 +305,88 @@ class InstareadPlayer {
                 return;
             }
 JS;
-        if ($is_playlist) {
-            // Playlist Injection Logic
-            $script .= <<<JS
-            const playerEl = document.createElement("instaread-player");
-            playerEl.setAttribute("publication", "{$pub}");
-            playerEl.setAttribute("p_type", "playlist");
-            playerEl.setAttribute("height", "{$playlist_height}");
-            playerEl.classList.add('instaread-player-injected');
+            if ($is_playlist) {
+                // Playlist Injection Logic
+                $script .= <<<JS
+                const playerEl = document.createElement("instaread-player");
+                playerEl.setAttribute("publication", publication);
+                playerEl.setAttribute("p_type", "playlist");
+                playerEl.setAttribute("height", "{$playlist_height}");
+                playerEl.classList.add('instaread-player-injected');
 
-            const playlistScript = document.createElement("script");
-            playlistScript.type = "module";
-            playlistScript.crossOrigin = true;
-            playlistScript.src = "https://instaread.co/js/v2/instaread.playlist.js";
+                const playlistScript = document.createElement("script");
+                playlistScript.type = "module";
+                playlistScript.crossOrigin = true;
+                playlistScript.src = "https://instaread.co/js/v2/instaread.playlist.js";
 
-            switch("{$pos}") {
-                case "prepend": case "before_element":
-                    t.parentNode.insertBefore(playerEl, t);
-                    t.parentNode.insertBefore(playlistScript, t);
-                    break;
-                case "append": case "after_element":
-                    t.parentNode.insertBefore(playerEl, t.nextSibling);
-                    t.parentNode.insertBefore(playlistScript, t.nextSibling);
-                    break;
-                case "inside_last_child": case "inside_element":
-                    t.appendChild(playlistScript);
-                    t.appendChild(playerEl);
-                    break;
-                case "inside_first_child":
-                    t.insertBefore(playerEl, t.firstChild);
-                    t.insertBefore(playlistScript, t.firstChild);
-                    break;
-            }
+                switch("{$pos}") {
+                    case "prepend": case "before_element":
+                        t.parentNode.insertBefore(playerEl, t);
+                        t.parentNode.insertBefore(playlistScript, t);
+                        break;
+                    case "append": case "after_element":
+                        t.parentNode.insertBefore(playerEl, t.nextSibling);
+                        t.parentNode.insertBefore(playlistScript, t.nextSibling);
+                        break;
+                    case "inside_last_child": case "inside_element":
+                        t.appendChild(playlistScript);
+                        t.appendChild(playerEl);
+                        break;
+                    case "inside_first_child":
+                        t.insertBefore(playerEl, t.firstChild);
+                        t.insertBefore(playlistScript, t.firstChild);
+                        break;
+                }
 JS;
-        } else {
-            // Default/Legacy Player Injection Logic
-            $script .= <<<JS
-            const w = document.createElement("div");
-            w.className = "playerContainer instaread-content-wrapper instaread-player-injected";
-            w.style.minHeight = "{$container_height}" || "144px";
-            w.innerHTML = `
-                            <instaread-player publication="{$pub}" class="instaread-player" playertype="{$player_type}" color="{$color}">
-                            <div class="instaread-audio-player" style="box-sizing:border-box;margin:0">
+            } else {
+                // Default/Legacy Player Injection Logic
+                $script .= <<<JS
+                const w = document.createElement("div");
+                w.className = "playerContainer instaread-content-wrapper instaread-player-injected";
+                w.style.minHeight = "{$container_height}" || "144px";
+                w.innerHTML = `
+                    <instaread-player publication="\${publication}" class="instaread-player" playertype="{$player_type}" color="{$color}">
+                        <div class="instaread-audio-player" style="box-sizing:border-box;margin:0">
                             <iframe id="instaread_iframe" width="100%" height="100%" scrolling="no" frameborder="0" loading="lazy" title="Audio Article" style="display:block" data-pin-nopin="true"></iframe>
-                            </div>
-                            </instaread-player>`;
-            const ir_version = Math.floor(Date.now() / 60000) * 60000;
-            const s = document.createElement("script");
-            s.src = "https://instaread.co/js/instaread.{$pub}.js?version=" + ir_version;
-            s.type = "module";
-
-            switch("{$pos}") {
-                case "prepend": case "before_element":
-                    t.parentNode.insertBefore(w, t);
-                    t.parentNode.insertBefore(s, t);
-                    break;
-                case "append": case "after_element":
-                    t.parentNode.insertBefore(w, t.nextSibling);
-                    t.parentNode.insertBefore(s, t.nextSibling);
-                    break;
-                case "inside_last_child": case "inside_element":
-                    t.appendChild(w);
-                    t.appendChild(s);
-                    break;
-                case "inside_first_child":
-                    t.insertBefore(w, t.firstChild);
-                    t.insertBefore(s, t.firstChild);
-                    break;
-            }
+                        </div>
+                    </instaread-player>`;
+                const ir_version = Math.floor(Date.now() / 60000) * 60000;
+                const s = document.createElement("script");
+                s.src = "https://instaread.co/js/instaread." + publication + ".js?version=" + ir_version;
+                s.type = "module";
+                switch("{$pos}") {
+                    case "prepend": case "before_element":
+                        t.parentNode.insertBefore(w, t);
+                        t.parentNode.insertBefore(s, t);
+                        break;
+                    case "append": case "after_element":
+                        t.parentNode.insertBefore(w, t.nextSibling);
+                        t.parentNode.insertBefore(s, t.nextSibling);
+                        break;
+                    case "inside_last_child": case "inside_element":
+                        t.appendChild(w);
+                        t.appendChild(s);
+                        break;
+                    case "inside_first_child":
+                        t.insertBefore(w, t.firstChild);
+                        t.insertBefore(s, t.firstChild);
+                        break;
+                }
 JS;
-        }
-        $script .= <<<JS
+            }
+            $script .= <<<JS
         });
     } catch (e) {
         console.error('[InstareadPlayer JS] querySelectorAll failed for selector:', "{$sel}", e);
     }
 })();
 JS;
+        }
+        $script .= "console.log('[Instaread Player] Injection script complete.');\n";
+        $script .= "});";
+        wp_add_inline_script('instaread-player', $script);
+        $this->log('Injected script strategy=' . $strat . ', isPlaylist=' . ($is_playlist ? 'true' : 'false'));
     }
-    $script .= "console.log('[Instaread Player] Injection script complete.');\n";
-    $script .= "});";
-    wp_add_inline_script('instaread-player', $script);
-    $this->log('Injected script strategy=' . $strat . ', isPlaylist=' . ($is_playlist ? 'true' : 'false'));
-}
-
 
     public function add_resource_hints($urls, $rel) {
         if ($rel === 'preconnect') {
