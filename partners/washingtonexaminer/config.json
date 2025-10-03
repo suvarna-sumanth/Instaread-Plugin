@@ -1,0 +1,48 @@
+{
+  "partner_id": "washingtonexaminer",
+  "domain": "washingtonexaminer.com",
+  "publication": "washingtonexaminer",
+  "injection_context": "singular",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": ".tdb_single_content p:first-of-type",
+      "insert_position": "before_element",
+      "exclude_slugs": [
+        "/",
+        "/category/rumors/",
+        "/official-2025-26-lakers-regular-season-schedule/",
+        "/video/",
+        "/faq-frequently-asked-questions/",
+        "/privacy-policy/",
+        "/about/",
+        "/terms-of-service/",
+        "/bars/",
+        "/staff/",
+        "/category/rumors/",
+        "/ethics-standard-and-corrections-policy/",
+        "/contact/",
+        "/2025/08/13/7/",
+        "/golden-knights-nation/",
+        "/video",
+        "/frequently-asked-questions/",
+        "dodger-stadium/",
+        "/contact-new/",
+        "/dodger-stadium/tripplanner/",
+        "/parking/",
+        "/dodgers-payroll/",
+        "/directory/",
+        "/schedule/",
+        "/fancave/",
+        "/policies-and-standards/",
+        "/terms/",
+        "/subscription-agreement/",
+        "/transparency-in-coverage/",
+        "/subscribe/digital/",
+        "/careers/",
+        "/staff-2/"
+      ]
+    }
+  ],
+  "version": "2.8.0"
+}
