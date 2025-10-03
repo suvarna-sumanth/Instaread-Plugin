@@ -4,6 +4,7 @@
   "publication": "washingtonexaminer",
   "injection_context": "singular",
   "injection_strategy": "first",
+  "container_height": "144px",
   "injection_rules": [
     {
       "target_selector": ".tdb_single_content p:first-of-type",
