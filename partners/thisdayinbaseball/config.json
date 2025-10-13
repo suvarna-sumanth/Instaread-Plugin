@@ -1,7 +1,8 @@
 {
   "partner_id": "thisdayinbaseball",
   "domain": "thisdayinbaseball.com",
-  "publication": "thisdayinbaseball",
+  "dynamic_publication_from_host": true,
+  "publication": "",
   "injection_context": "singular",
   "injection_strategy": "first",
   "container_height": "144px",
