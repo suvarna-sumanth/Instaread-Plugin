@@ -65,10 +65,13 @@ jobs:
 
           # Copy partner-specific config
           cp partners/${PARTNER_ID}/config.json ${BUILD_DIR}/
-          cp partners/${PARTNER_ID}/*.css ${BUILD_DIR}/ 2>/dev/null || true
+          cp partners/${PARTNER_ID}/styles.css ${BUILD_DIR}/ 2>/dev/null || true
 
           # Copy partner-specific JS
           cp partners/${PARTNER_ID}/partner.js ${BUILD_DIR}/ 2>/dev/null || true
+
+          # Copy partner-specific composer.json
+          cp partners/${PARTNER_ID}/composer.json ${BUILD_DIR}/ 2>/dev/null || true
 
           # Copy plugin.json into build directory
           cp partners/${PARTNER_ID}/plugin.json ${BUILD_DIR}/

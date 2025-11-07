@@ -1,0 +1,11 @@
+@media (min-width: 669px) {
+  .instaread-player-slot {
+    height: 180px;
+  }
+}
+
+@media (max-width: 668px) {
+  .instaread-player-slot {
+    height: 261px;
+  }
+}
