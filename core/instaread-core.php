@@ -261,9 +261,6 @@ class InstareadPlayer {
         return sprintf(
             '<div class="instaread-player-slot" style="%s">
                 <instaread-player publication="%s" playertype="%s" color="%s">
-                    <div class="instaread-audio-player">
-                        <iframe id="instaread_iframe" width="100%%" height="100%%" frameborder="0" loading="lazy"></iframe>
-                    </div>
                 </instaread-player>
                 <script type="text/javascript">
                     (function(){
@@ -271,7 +268,7 @@ class InstareadPlayer {
                         var ir_version = %d;
                         var s = document.createElement("script");
                         s.type = "module";
-                        s.src = "http://localhost:3001/js/instaread." + publication + ".js?version=" + ir_version;
+                        s.src = "https://instaread.co/js/instaread." + publication + ".js?version=" + ir_version;
                         document.currentScript.parentNode.appendChild(s);
                     })();
                 </script>
