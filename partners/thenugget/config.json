@@ -2,17 +2,32 @@
   "partner_id": "thenugget",
   "domain": "thenugget.instaread.co",
   "publication": "thenugget",
-  "version": "2.2.6",
-  "playerType": "default",
-  "color": "#3B82F6",
+  "version": "4.1.0",
   "injection_context": "singular",
   "injection_strategy": "first",
   "injection_rules": [
     {
       "target_selector": "div.entry-content > p",
       "insert_position": "before_element",
-      "exclude_slugs": "",
-      "nth": 0
+      "exclude_slugs": [
+        "/",
+        "/about/",
+        "/contact/",
+        "/privacy-policy/",
+        "/terms-of-service/",
+        "/newsletter-registration/",
+        "/what-is-thenugget/",
+        "/our-value/",
+        "/privacy-policy/",
+        "/contact-us/",
+        "/feedback/",
+        "/advertise-with-us/",
+        "/sitemap/",
+        "/becoming-a-partner/",
+        "/team/",
+        "/show-rooms/",
+        "/2025/08/13/7/"
+      ]
     }
   ]
 }

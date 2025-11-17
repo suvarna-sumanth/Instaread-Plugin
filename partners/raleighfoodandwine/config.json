@@ -36,7 +36,8 @@
           "/advertise-with-us/",
           "/shop/",
           "/cart/",
-          "/checkout/"
+          "/checkout/",
+          "/my-account/"
         ]
       }
     ],
