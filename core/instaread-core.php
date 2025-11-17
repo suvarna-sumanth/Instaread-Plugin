@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: Instaread Audio Player
+ * Plugin Name: Instaread Audio Player - raleighfoodandwine
  * Plugin URI: https://instaread.co
- * Description: Instaread auto-injecting player with partner configuration and full server-side rendering (loader removed, partner CSS auto-enqueued, logging via $debug flag)
- * Version: 3.2.0
+ * Description: Instaread auto-injecting player with partner configuration and full server-side rendering (no DOMDocument parsing, safer string injection)
+ * Version: 4.1.0
  * Author: Instaread Team
  */
 
@@ -63,7 +63,8 @@ class InstareadPlayer {
             ? "https://raw.githubusercontent.com/suvarna-sumanth/Instaread-Plugin/main/partners/{$this->partner_config['partner_id']}/plugin.json"
             : 'https://suvarna-sumanth.github.io/Instaread-Plugin/plugin.json';
         PucFactory::buildUpdateChecker(
-            $update_url, __FILE__,
+            $update_url,
+            __FILE__,
             $this->partner_config ? 'instaread-' . $this->partner_config['partner_id'] : 'instaread-audio-player'
         );
         $this->log("Update checker initialized: $update_url");
@@ -133,7 +134,6 @@ class InstareadPlayer {
     }
 
     public function enqueue_assets() {
-        // Enqueue local styles.css if it exists
         global $partner_css, $partner_css_file;
         if ($partner_css && file_exists($partner_css_file)) {
             $local_css_handle = 'instaread-local-style';
@@ -144,140 +144,149 @@ class InstareadPlayer {
         }
     }
 
-    public function inject_server_side_player($content) {
-        if (is_admin() || !is_main_query()) return $content;
-        global $post;
-        if (empty($post)) return $content;
-
-        $exclude_slugs = [];
-        foreach ($this->settings['injection_rules'] as $rule) {
-            if (!empty($rule['exclude_slugs'])) {
-                $exclude_slugs = array_merge($exclude_slugs, $rule['exclude_slugs']);
-            }
-        }
-        $current_slug = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH) ?? '';
-        $this->log('Current slug for exclusion: ' . $current_slug);
-        if ($exclude_slugs && in_array($current_slug, $exclude_slugs)) {
-            $this->log('Skipping injection for excluded slug: ' . $current_slug);
-            return $content;
-        }
-
-        $ctx = $this->settings['injection_context'];
-        if ($ctx === 'singular' && !is_singular()) {
-            $this->log('Skipping injection: not singular context');
-            return $content;
-        }
-
-        $publication = $this->settings['publication'];
-        if (!empty($this->partner_config['dynamic_publication_from_host'])) {
-            $host_parts = explode('.', parse_url(home_url(), PHP_URL_HOST));
-            $publication = reset($host_parts) ?: $publication;
-        }
-
-        $is_playlist = !empty($this->partner_config['isPlaylist']);
-        $player_type = $this->partner_config['playerType'] ?? '';
-        $color = $this->partner_config['color'] ?? '#59476b';
-        $slot_css = $this->partner_config['slot_css'];
-        $playlist_height = $this->partner_config['playlist_height'] ?? '80vh';
-
-        foreach ($this->settings['injection_rules'] as $rule) {
-            $pos = $rule['insert_position'] ?? 'append';
-            $selector = $rule['target_selector'] ?? '.entry-content';
-            $xpath_expr = $this->css_to_xpath($selector);
-            $this->log("Trying to inject player: selector: $selector, pos: $pos, xpath: $xpath_expr");
-
-            $dom = new DOMDocument();
-            libxml_use_internal_errors(true);
-            $dom->loadHTML('<?xml encoding="utf-8" ?>' . $content, LIBXML_HTML_NODEFDTD | LIBXML_HTML_NOIMPLIED);
-            $xpath = new DOMXPath($dom);
-            $nodes = $xpath->query($xpath_expr);
-
-            if ($nodes->length > 0) {
-                $player_node = $is_playlist ?
-                    $this->make_dom_node($dom, $this->render_playlist($publication, $playlist_height)) :
-                    $this->make_dom_node($dom, $this->render_single($publication, $player_type, $color, $slot_css));
-
-                $target = $nodes->item(0);
-                switch ($pos) {
-                    case 'prepend':
-                    case 'before_element':
-                        $target->parentNode->insertBefore($player_node, $target);
-                        break;
-                    case 'inside_first_child':
-                        if ($target->hasChildNodes()) {
-                            $target->insertBefore($player_node, $target->firstChild);
-                        } else {
-                            $target->appendChild($player_node);
-                        }
-                        break;
-                    case 'inside_last_child':
-                    case 'inside_element':
-                        $target->appendChild($player_node);
-                        break;
-                    case "append":
-                    case "after_element":
-                        if ($target->nextSibling) {
-                            $target->parentNode->insertBefore($player_node, $target->nextSibling);
-                        } else {
-                            $target->parentNode->appendChild($player_node);
-                        }
-                        break;
-                    default:
-                        $target->appendChild($player_node);
-                }
-                $this->log("Injected player slot at selector $selector position $pos.");
-            } else {
-                $this->log("Selector '$selector' did not match any nodes.");
-            }
-            $content = $dom->saveHTML();
-        }
+   public function inject_server_side_player($content) {
+    if (is_admin() || !is_main_query()) {
+        return $content;
+    }
+    global $post;
+    if (empty($post)) {
         return $content;
     }
 
-    private function make_dom_node($parent_dom, $html) {
-        $tmp = new DOMDocument();
-        libxml_use_internal_errors(true);
-        $tmp->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NODEFDTD | LIBXML_HTML_NOIMPLIED);
-        libxml_clear_errors();
-        $body = $tmp->getElementsByTagName('body')->item(0);
-        if ($body) {
-            foreach ($body->childNodes as $node) {
-                if ($node->nodeType === XML_ELEMENT_NODE) {
-                    return $parent_dom->importNode($node, true);
+    // Flatten exclusion slugs from settings
+    $exclude_slugs = [];
+    foreach ($this->settings['injection_rules'] as $rule) {
+        if (!empty($rule['exclude_slugs']) && is_array($rule['exclude_slugs'])) {
+            $exclude_slugs = array_merge($exclude_slugs, $rule['exclude_slugs']);
+        }
+    }
+    $current_slug = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH) ?? '';
+    $this->log('Current slug for exclusion: ' . $current_slug);
+    if ($exclude_slugs && in_array($current_slug, $exclude_slugs, true)) {
+        $this->log('Skipping injection for excluded slug: ' . $current_slug);
+        return $content;
+    }
+
+    // Injection context check
+    $ctx = $this->settings['injection_context'];
+    if ($ctx === 'singular' && !is_singular()) {
+        $this->log('Skipping injection: not singular context');
+        return $content;
+    }
+
+    $publication = $this->settings['publication'];
+    if (!empty($this->partner_config['dynamic_publication_from_host'])) {
+        $host_parts = explode('.', parse_url(home_url(), PHP_URL_HOST));
+        $publication = reset($host_parts) ?: $publication;
+    }
+
+    $is_playlist = !empty($this->partner_config['isPlaylist']);
+    $player_type = $this->partner_config['playerType'] ?? '';
+    $color = $this->partner_config['color'] ?? '#59476b';
+    $slot_css = $this->partner_config['slot_css'] ?? 'min-height:144px;';
+    $playlist_height = $this->partner_config['playlist_height'] ?? '80vh';
+
+    foreach ($this->settings['injection_rules'] as $rule) {
+        $pos = $rule['insert_position'] ?? 'append';
+
+        // Prepare player HTML markup
+        $player_html = $is_playlist
+            ? $this->render_playlist($publication, $playlist_height)
+            : $this->render_single($publication, $player_type, $color, $slot_css);
+
+        // Inject player markup based on position
+        switch ($pos) {
+            case 'prepend':
+                $content = $player_html . $content;
+                $this->log("Prepended player markup.");
+                break;
+
+            case 'append':
+                $content .= $player_html;
+                $this->log("Appended player markup.");
+                break;
+
+            case 'before_element':
+                // Insert before first paragraph tag, fallback to prepend
+                if (preg_match('/<p\b[^>]*>/i', $content, $matches, PREG_OFFSET_CAPTURE)) {
+                    $pos_start = $matches[0][1];
+                    $content = substr_replace($content, $player_html, $pos_start, 0);
+                    $this->log("Inserted player markup before first <p> element.");
+                } else {
+                    $content = $player_html . $content;
+                    $this->log("No <p> tag found; prepended player markup.");
                 }
-            }
+                break;
+
+            case 'after_element':
+                // Insert after first closing </p>, fallback to append
+                if (preg_match('/<\/p>/i', $content, $matches, PREG_OFFSET_CAPTURE)) {
+                    $pos_end = $matches[0][1] + strlen($matches[0][0]);
+                    $content = substr_replace($content, $player_html, $pos_end, 0);
+                    $this->log("Inserted player markup after first </p> element.");
+                } else {
+                    $content .= $player_html;
+                    $this->log("No </p> tag found; appended player markup.");
+                }
+                break;
+
+            case 'inside_first_child':
+                // Insert immediately inside the first block-level element opening tag
+                if (preg_match('/<(div|section|article|p|blockquote)[^>]*>/i', $content, $matches, PREG_OFFSET_CAPTURE)) {
+                    $pos_start = $matches[0][1] + strlen($matches[0][0]);
+                    $content = substr_replace($content, $player_html, $pos_start, 0);
+                    $this->log("Inserted player markup inside first child element.");
+                } else {
+                    $content = $player_html . $content;
+                    $this->log("No suitable element found; prepended player markup.");
+                }
+                break;
+
+            case 'inside_last_child':
+            case 'inside_element':
+                // Insert before last closing block-level element tag
+                $pattern = '/<\/(div|section|article|p|blockquote)>/i';
+                if (preg_match_all($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+                    $last = end($matches[0]);
+                    $pos_start = $last[1]; // position of last closing tag
+                    $content = substr_replace($content, $player_html, $pos_start, 0);
+                    $this->log("Inserted player markup inside last child or element.");
+                } else {
+                    // fallback to append
+                    $content .= $player_html;
+                    $this->log("No closing container tag found; appended player markup.");
+                }
+                break;
+
+            default:
+                // Unknown position - fallback to append
+                $content .= $player_html;
+                $this->log("Appended player markup (default fallback).");
+                break;
         }
-        $el = $tmp->documentElement;
-        if ($el && $el->nodeType === XML_ELEMENT_NODE) {
-            return $parent_dom->importNode($el, true);
-        }
-        return $parent_dom->createTextNode('[Audio Player Error]');
     }
 
-    private function render_single($publication, $type, $color, $slot_css) {
-        $ir_version = floor(time() / 60) * 60000;
-        $this->log("Rendering single player: publication=$publication, type=$type");
+    return $content;
+}
 
-        return sprintf(
-            '<div class="instaread-player-slot" style="%s">
-                <instaread-player publication="%s" playertype="%s" color="%s">
-                </instaread-player>
-                <script type="text/javascript">
-                    (function(){
-                        var publication = "%s";
-                        var ir_version = %d;
-                        var s = document.createElement("script");
-                        s.type = "module";
-                        s.src = "https://instaread.co/js/instaread." + publication + ".js?version=" + ir_version;
-                        document.currentScript.parentNode.appendChild(s);
-                    })();
-                </script>
-            </div>',
-            esc_attr($slot_css),
-            esc_html($publication), esc_html($type), esc_html($color),
-            esc_js($publication), $ir_version
-        );
-    }
+
+ private function render_single($publication, $type, $color, $slot_css) { 
+    $ir_version = floor(time() / 60) * 60000;
+    $this->log("Rendering single player: publication=$publication, type=$type");
+
+    return sprintf(
+        '<div class="instaread-player-slot" style="%s">
+            <instaread-player publication="%s" playertype="%s" color="%s"></instaread-player>
+            <script type="module" src="https://instaread.co/js/instaread.%s.js?version=%d"></script>
+        </div>',
+        esc_attr($slot_css),
+        esc_html($publication),
+        esc_html($type),
+        esc_html($color),
+        esc_html($publication), // use esc_html for attributes, not esc_js
+        $ir_version
+    );
+}
 
     private function render_playlist($publication, $height) {
         $this->log("Rendering playlist player: publication=$publication, height=$height");
@@ -290,22 +299,15 @@ class InstareadPlayer {
         );
     }
 
-    private function css_to_xpath($selector) {
-        $selector = trim($selector);
-        if ($selector[0] === '.') return '//*[contains(concat(" ", normalize-space(@class), " "), " ' . substr($selector,1) . ' ")]';
-        if ($selector[0] === '#') return '//*[@id="' . substr($selector,1) . '"]';
-        return '//' . $selector;
-    }
-
     public function sanitize_settings($in) {
         return ['publication' => sanitize_text_field($in['publication'] ?? 'default')];
     }
 
     private function maybe_migrate_old_settings() {
         $old = get_option('instaread_legacy_settings');
-        if ($old) { 
-            update_option('instaread_settings', ['publication' => $old['publication'] ?? '']); 
-            delete_option('instaread_legacy_settings'); 
+        if ($old) {
+            update_option('instaread_settings', ['publication' => $old['publication'] ?? '']);
+            delete_option('instaread_legacy_settings');
             $this->log('Migrated old settings to new option.');
         }
     }
