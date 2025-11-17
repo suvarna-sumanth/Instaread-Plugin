@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: Instaread Audio Player - raleighfoodandwine
+ * Plugin Name: Instaread Audio Player
  * Plugin URI: https://instaread.co
  * Description: Instaread auto-injecting player with partner configuration and full server-side rendering (no DOMDocument parsing, safer string injection)
  * Version: 4.1.0
