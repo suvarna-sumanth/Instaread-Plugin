@@ -7,7 +7,7 @@
     "injection_rules": [
       {
         "target_selector": ".content-inner  > p:first-of-type",
-        "insert_position": "prepend",
+        "insert_position": "before_element",
         "exclude_slugs": [
           "/",
           "/category/rumors/",
