@@ -1,0 +1,60 @@
+{
+    "partner_id": "zmescience",
+    "domain": "zmescience.com",
+    "publication": "zmescience",
+    "injection_context": "singular",
+    "injection_strategy": "first",
+    "injection_rules": [
+      {
+        "target_selector": ".content-inner  > p:first-of-type",
+        "insert_position": "prepend",
+        "exclude_slugs": [
+          "/",
+          "/category/rumors/",
+          "/official-2025-26-lakers-regular-season-schedule/",
+          "/video/",
+          "/faq-frequently-asked-questions/",
+          "/privacy-policy/",
+          "/about/",
+          "/terms-of-service/",
+          "/news/",
+          "/category/games/",
+          "/history/",
+          "/contact/",
+          "/category/news/",
+          "/about-us/",
+          "/contact-us/",
+          "/services/",
+          "/category/growers-guide/",
+          "/nation-world/",
+          "/category/localstate/state/",
+          "/category/ag-sectors/",
+          "/partner-with-us/",
+          "/submit-event/",
+          "/sign-up-for-emails/",
+          "/advertise-with-us/",
+          "/advertise-with-us/",
+          "/shop/",
+          "/cart/",
+          "/checkout/",
+          "/my-account/",
+          "/science/",
+          "/ecology/",
+          "/medicine/",
+          "/space/",
+          "/future/",
+          "/about/",
+          "/authors/",
+          "/advertise/",
+          "/contribute/",
+          "/editorial-policy/",
+          "/privacy-policy/",
+          "/contact/",
+          "/reviews/"
+
+        ]
+      }
+    ],
+    "version": "4.0.0"
+  }
+  
