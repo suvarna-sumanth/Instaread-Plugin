@@ -145,11 +145,23 @@ class InstareadPlayer {
     }
 
    public function inject_server_side_player($content) {
+    // WordPress safety checks
     if (is_admin() || !is_main_query()) {
         return $content;
     }
     global $post;
     if (empty($post)) {
+        return $content;
+    }
+
+    // Ensure content is a string and not empty
+    if (!is_string($content) || trim($content) === '') {
+        return $content;
+    }
+
+    // Prevent double injection - check if player already exists
+    if (strpos($content, 'instaread-player-slot') !== false || strpos($content, 'instaread-player') !== false) {
+        $this->log('Player already exists in content, skipping injection to prevent duplicates.');
         return $content;
     }
 
@@ -188,86 +200,342 @@ class InstareadPlayer {
 
     foreach ($this->settings['injection_rules'] as $rule) {
         $pos = $rule['insert_position'] ?? 'append';
+        $target_selector = $rule['target_selector'] ?? null;
 
         // Prepare player HTML markup
         $player_html = $is_playlist
             ? $this->render_playlist($publication, $playlist_height)
             : $this->render_single($publication, $player_type, $color, $slot_css);
 
-        // Inject player markup based on position
-        switch ($pos) {
-            case 'prepend':
-                $content = $player_html . $content;
-                $this->log("Prepended player markup.");
-                break;
-
-            case 'append':
-                $content .= $player_html;
-                $this->log("Appended player markup.");
-                break;
-
-            case 'before_element':
-                // Insert before first paragraph tag, fallback to prepend
-                if (preg_match('/<p\b[^>]*>/i', $content, $matches, PREG_OFFSET_CAPTURE)) {
-                    $pos_start = $matches[0][1];
-                    $content = substr_replace($content, $player_html, $pos_start, 0);
-                    $this->log("Inserted player markup before first <p> element.");
-                } else {
-                    $content = $player_html . $content;
-                    $this->log("No <p> tag found; prepended player markup.");
-                }
-                break;
-
-            case 'after_element':
-                // Insert after first closing </p>, fallback to append
-                if (preg_match('/<\/p>/i', $content, $matches, PREG_OFFSET_CAPTURE)) {
-                    $pos_end = $matches[0][1] + strlen($matches[0][0]);
-                    $content = substr_replace($content, $player_html, $pos_end, 0);
-                    $this->log("Inserted player markup after first </p> element.");
-                } else {
-                    $content .= $player_html;
-                    $this->log("No </p> tag found; appended player markup.");
-                }
-                break;
-
-            case 'inside_first_child':
-                // Insert immediately inside the first block-level element opening tag
-                if (preg_match('/<(div|section|article|p|blockquote)[^>]*>/i', $content, $matches, PREG_OFFSET_CAPTURE)) {
-                    $pos_start = $matches[0][1] + strlen($matches[0][0]);
-                    $content = substr_replace($content, $player_html, $pos_start, 0);
-                    $this->log("Inserted player markup inside first child element.");
-                } else {
-                    $content = $player_html . $content;
-                    $this->log("No suitable element found; prepended player markup.");
-                }
-                break;
-
-            case 'inside_last_child':
-            case 'inside_element':
-                // Insert before last closing block-level element tag
-                $pattern = '/<\/(div|section|article|p|blockquote)>/i';
-                if (preg_match_all($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
-                    $last = end($matches[0]);
-                    $pos_start = $last[1]; // position of last closing tag
-                    $content = substr_replace($content, $player_html, $pos_start, 0);
-                    $this->log("Inserted player markup inside last child or element.");
-                } else {
-                    // fallback to append
-                    $content .= $player_html;
-                    $this->log("No closing container tag found; appended player markup.");
-                }
-                break;
-
-            default:
-                // Unknown position - fallback to append
-                $content .= $player_html;
-                $this->log("Appended player markup (default fallback).");
-                break;
-        }
+        // Use safe string-based injection that respects target_selector
+        // Avoids DOMDocument to prevent conflicts with WordPress content filters
+        $content = $this->inject_with_safe_string_manipulation($content, $player_html, $target_selector, $pos);
     }
 
     return $content;
 }
+
+    /**
+     * Safely inject player HTML using string manipulation (WordPress-compatible)
+     * Respects target_selector and preserves HTML structure without DOMDocument
+     */
+    private function inject_with_safe_string_manipulation($content, $player_html, $target_selector, $insert_position) {
+        // Validate inputs
+        if (!is_string($content) || !is_string($player_html)) {
+            $this->log('Invalid content or player HTML, skipping injection.');
+            return $content;
+        }
+
+        // Ensure content is not empty
+        if (trim($content) === '') {
+            return $content . $player_html;
+        }
+
+        // If no target selector, use simple prepend/append
+        if (empty($target_selector)) {
+            if ($insert_position === 'prepend') {
+                return $player_html . $content;
+            }
+            return $content . $player_html;
+        }
+
+        // Find target element using safe string matching
+        $target_info = $this->find_target_element($content, $target_selector);
+        
+        if (!$target_info) {
+            $this->log("Target selector '{$target_selector}' not found, appending to content.");
+            return $content . $player_html;
+        }
+        
+        // Validate target info before injection
+        if (!isset($target_info['open_pos']) || $target_info['open_pos'] < 0 || $target_info['open_pos'] >= strlen($content)) {
+            $this->log('Invalid target position, appending to content.');
+            return $content . $player_html;
+        }
+        
+        // Inject based on position relative to target element
+        try {
+            return $this->inject_at_position($content, $player_html, $target_info, $insert_position);
+        } catch (Exception $e) {
+            $this->log('Error during injection: ' . $e->getMessage() . ' - Appending to content.');
+            return $content . $player_html;
+        }
+    }
+
+    /**
+     * Find target element in content using safe string matching
+     * Returns array with element info or false if not found
+     * Supports: .class, #id, tag, .parent > child, .parent > child:pseudo
+     */
+    private function find_target_element($content, $selector) {
+        // Validate inputs
+        if (!is_string($content) || !is_string($selector) || trim($content) === '' || trim($selector) === '') {
+            return false;
+        }
+
+        $selector = trim($selector);
+        
+        // Handle child combinator: .parent > child or .parent > child:pseudo
+        if (preg_match('/^([^\s>]+)\s*>\s*([a-zA-Z0-9_-]+)(:.*)?$/', $selector, $child_matches)) {
+            $parent_selector = trim($child_matches[1]);
+            $child_tag = $child_matches[2];
+            $pseudo = isset($child_matches[3]) ? $child_matches[3] : '';
+            
+            // Find parent element first
+            $parent_info = $this->find_target_element($content, $parent_selector);
+            if (!$parent_info) {
+                return false;
+            }
+            
+            // Look for first child of specified tag within parent
+            $parent_after_open = $parent_info['after_open'];
+            $parent_close_pos = $parent_info['close_pos'] ?? strlen($content);
+            
+            // Search for first child tag within parent
+            $parent_content = substr($content, $parent_after_open, ($parent_close_pos - $parent_after_open));
+            
+            // Find first occurrence of child tag (for :first-of-type)
+            if (preg_match('/<' . preg_quote($child_tag, '/') . '\b[^>]*>/i', $parent_content, $child_match, PREG_OFFSET_CAPTURE)) {
+                $child_open_pos = $parent_after_open + $child_match[0][1];
+                $child_open_tag = $child_match[0][0];
+                $child_tag_name = strtolower($child_tag);
+                
+                // Find matching closing tag for child
+                $child_after_open = $child_open_pos + strlen($child_open_tag);
+                $remaining = substr($content, $child_after_open);
+                
+                $depth = 1;
+                $search_pos = 0;
+                $child_close_pos = false;
+                $max_iterations = 1000; // Safety limit to prevent infinite loops
+                $iteration = 0;
+                
+                while ($depth > 0 && $iteration < $max_iterations) {
+                    $iteration++;
+                    if (!preg_match('/<\/?' . preg_quote($child_tag_name, '/') . '(\s[^>]*)?>/i', $remaining, $tag_match, PREG_OFFSET_CAPTURE, $search_pos)) {
+                        break; // No more matches
+                    }
+                    
+                    $match_str = $tag_match[0][0];
+                    $match_pos = $tag_match[0][1];
+                    
+                    // Skip self-closing tags (they don't affect depth)
+                    if (preg_match('/\/\s*>$/', $match_str)) {
+                        $search_pos = $match_pos + strlen($match_str);
+                        continue;
+                    }
+                    
+                    if (strpos($match_str, '</') === 0) {
+                        $depth--;
+                        if ($depth === 0) {
+                            $child_close_pos = $child_after_open + $match_pos + strlen($match_str);
+                            break;
+                        }
+                    } else {
+                        $depth++;
+                    }
+                    $search_pos = $match_pos + strlen($match_str);
+                }
+                
+                if ($iteration >= $max_iterations) {
+                    $this->log("Warning: Max iterations reached while finding closing tag for child '{$child_tag_name}'");
+                }
+                
+                return [
+                    'tag_name' => $child_tag_name,
+                    'open_pos' => $child_open_pos,
+                    'open_tag' => $child_open_tag,
+                    'open_tag_len' => strlen($child_open_tag),
+                    'close_pos' => $child_close_pos !== false ? $child_close_pos : null,
+                    'after_open' => $child_after_open
+                ];
+            }
+            
+            return false;
+        }
+        
+        // Simple selector: class, ID, or tag
+        $is_class = preg_match('/^\.([a-zA-Z0-9_-]+)/', $selector, $class_matches);
+        $is_id = preg_match('/^#([a-zA-Z0-9_-]+)/', $selector, $id_matches);
+        $is_tag = preg_match('/^([a-zA-Z0-9_-]+)$/', $selector, $tag_matches);
+        
+        $pattern = null;
+        $tag_name = null;
+        
+        if ($is_class) {
+            $class_name = $class_matches[1];
+            // Match opening tag with class attribute (handles various quote styles and spacing)
+            $pattern = '/<([a-zA-Z][a-zA-Z0-9]*)[^>]*\s+class\s*=\s*["\']([^"\']*\b' . preg_quote($class_name, '/') . '\b[^"\']*)["\'][^>]*>/i';
+        } elseif ($is_id) {
+            $id_name = $id_matches[1];
+            // Match opening tag with id attribute
+            $pattern = '/<([a-zA-Z][a-zA-Z0-9]*)[^>]*\s+id\s*=\s*["\']' . preg_quote($id_name, '/') . '["\'][^>]*>/i';
+        } elseif ($is_tag) {
+            $tag_name = $tag_matches[1];
+            $pattern = '/<' . preg_quote($tag_name, '/') . '\b[^>]*>/i';
+        } else {
+            // Complex selector - try to extract tag name
+            if (preg_match('/([a-zA-Z][a-zA-Z0-9]*)\s*$/', $selector, $tag_extract)) {
+                $tag_name = $tag_extract[1];
+                $pattern = '/<' . preg_quote($tag_name, '/') . '\b[^>]*>/i';
+            }
+        }
+        
+        if (!$pattern || !preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+            return false;
+        }
+        
+        $open_pos = $matches[0][1];
+        $open_tag = $matches[0][0];
+        $tag_name = $tag_name ?: strtolower($matches[1][0]);
+        
+        // Find matching closing tag
+        $after_open = $open_pos + strlen($open_tag);
+        $remaining = substr($content, $after_open);
+        
+        // Count depth to find matching closing tag
+        // This handles nested elements of the same type correctly
+        $depth = 1;
+        $search_pos = 0;
+        $close_pos = false;
+        $max_iterations = 1000; // Safety limit to prevent infinite loops
+        $iteration = 0;
+        
+        while ($depth > 0 && $iteration < $max_iterations) {
+            $iteration++;
+            if (!preg_match('/<\/?' . preg_quote($tag_name, '/') . '(\s[^>]*)?>/i', $remaining, $tag_match, PREG_OFFSET_CAPTURE, $search_pos)) {
+                break; // No more matches
+            }
+            
+            $match_str = $tag_match[0][0];
+            $match_pos = $tag_match[0][1];
+            
+            // Skip self-closing tags (they don't affect depth)
+            if (preg_match('/\/\s*>$/', $match_str)) {
+                $search_pos = $match_pos + strlen($match_str);
+                continue;
+            }
+            
+            if (strpos($match_str, '</') === 0) {
+                // Closing tag
+                $depth--;
+                if ($depth === 0) {
+                    $close_pos = $after_open + $match_pos + strlen($match_str);
+                    break;
+                }
+            } else {
+                // Opening tag (nested)
+                $depth++;
+            }
+            $search_pos = $match_pos + strlen($match_str);
+        }
+        
+        if ($iteration >= $max_iterations) {
+            $this->log("Warning: Max iterations reached while finding closing tag for '{$tag_name}'");
+        }
+        
+        return [
+            'tag_name' => $tag_name,
+            'open_pos' => $open_pos,
+            'open_tag' => $open_tag,
+            'open_tag_len' => strlen($open_tag),
+            'close_pos' => $close_pos !== false ? $close_pos : null,
+            'after_open' => $after_open
+        ];
+    }
+
+    /**
+     * Inject player HTML at specified position relative to target element
+     * Preserves HTML structure and ensures safe string manipulation
+     */
+    private function inject_at_position($content, $player_html, $target_info, $insert_position) {
+        // Validate target info
+        if (!is_array($target_info) || !isset($target_info['open_pos'])) {
+            $this->log('Invalid target info, appending to content.');
+            return $content . $player_html;
+        }
+
+        $tag_name = $target_info['tag_name'] ?? '';
+        $open_pos = (int) $target_info['open_pos'];
+        $open_tag_len = (int) ($target_info['open_tag_len'] ?? 0);
+        $close_pos = isset($target_info['close_pos']) ? (int) $target_info['close_pos'] : null;
+        $after_open = (int) ($target_info['after_open'] ?? $open_pos + $open_tag_len);
+        
+        // Validate positions are within content bounds
+        $content_len = strlen($content);
+        if ($open_pos < 0 || $open_pos >= $content_len) {
+            $this->log('Invalid open position, appending to content.');
+            return $content . $player_html;
+        }
+        
+        if ($close_pos !== null && ($close_pos < 0 || $close_pos > $content_len)) {
+            $this->log('Invalid close position, using after_open position.');
+            $close_pos = null;
+        }
+        
+        if ($after_open < 0 || $after_open > $content_len) {
+            $this->log('Invalid after_open position, appending to content.');
+            return $content . $player_html;
+        }
+        
+        // Ensure positions are in correct order
+        if ($close_pos !== null && $close_pos <= $after_open) {
+            $this->log('Close position before after_open, adjusting.');
+            $close_pos = null;
+        }
+        
+        switch ($insert_position) {
+            case 'before_element':
+                // Insert before target element opening tag - preserves all HTML structure
+                $content = substr_replace($content, $player_html, $open_pos, 0);
+                $this->log("Injected player before target element (preserving HTML structure).");
+                break;
+                
+            case 'after_element':
+                // Insert after target element closing tag (or after opening if no closing)
+                // This ensures the target element remains intact
+                if ($close_pos !== null && $close_pos <= $content_len) {
+                    $content = substr_replace($content, $player_html, $close_pos, 0);
+                    $this->log("Injected player after target element closing tag (preserving HTML structure).");
+                } else {
+                    // Self-closing or no closing tag found - insert after opening tag
+                    $content = substr_replace($content, $player_html, $after_open, 0);
+                    $this->log("Injected player after target element opening tag (no closing tag found, preserving structure).");
+                }
+                break;
+                
+            case 'inside_first_child':
+            case 'prepend':
+                // Insert as first child - right after opening tag
+                // This preserves the target element's structure and all its children
+                $content = substr_replace($content, $player_html, $after_open, 0);
+                $this->log("Injected player as first child inside target element (preserving HTML structure).");
+                break;
+                
+            case 'inside_last_child':
+            case 'inside_element':
+            case 'append':
+                // Insert as last child - before closing tag (or after opening if no closing)
+                // This ensures all existing children remain intact
+                if ($close_pos !== null && $close_pos <= $content_len) {
+                    $content = substr_replace($content, $player_html, $close_pos, 0);
+                    $this->log("Injected player as last child inside target element (preserving HTML structure).");
+                } else {
+                    // No closing tag - insert after opening tag
+                    $content = substr_replace($content, $player_html, $after_open, 0);
+                    $this->log("Injected player after opening tag (no closing tag found, preserving structure).");
+                }
+                break;
+                
+            default:
+                // Fallback: append to content (safest option)
+                $content .= $player_html;
+                $this->log("Injected player using default (append) to preserve content.");
+                break;
+        }
+        
+        return $content;
+    }
 
 
  private function render_single($publication, $type, $color, $slot_css) { 
