@@ -220,12 +220,52 @@ class InstareadPlayer {
             $exclude_slugs = array_merge($exclude_slugs, $rule['exclude_slugs']);
         }
     }
-    $current_slug = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH) ?? '';
+    
+    // Get current URL path using WordPress functions (more reliable than REQUEST_URI)
+    $current_slug = '';
+    if (function_exists('wp_parse_url')) {
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+        $parsed = wp_parse_url($request_uri);
+        $current_slug = $parsed['path'] ?? '';
+    } else {
+        $current_slug = parse_url($_SERVER["REQUEST_URI"] ?? '', PHP_URL_PATH) ?? '';
+    }
+    
+    // Also try WordPress permalink structure
+    if (empty($current_slug) || $current_slug === '/') {
+        global $wp;
+        if (isset($wp->request) && !empty($wp->request)) {
+            $current_slug = '/' . $wp->request . '/';
+        } elseif (is_singular() && isset($GLOBALS['post'])) {
+            $permalink = get_permalink($GLOBALS['post']->ID);
+            $parsed = parse_url($permalink);
+            $current_slug = $parsed['path'] ?? '';
+        }
+    }
+    
+    // Normalize the slug (ensure it starts with / and ends with / for comparison)
+    $current_slug = rtrim($current_slug, '/');
+    if (empty($current_slug)) {
+        $current_slug = '/';
+    } else {
+        $current_slug = '/' . ltrim($current_slug, '/');
+    }
+    
     $this->log('Current slug for exclusion: ' . $current_slug);
-    if ($exclude_slugs && in_array($current_slug, $exclude_slugs, true)) {
+    $this->log('Exclude slugs list: ' . print_r($exclude_slugs, true));
+    
+    // Normalize exclude slugs for comparison
+    $normalized_exclude_slugs = array_map(function($slug) {
+        $slug = rtrim($slug, '/');
+        return empty($slug) ? '/' : '/' . ltrim($slug, '/');
+    }, $exclude_slugs);
+    
+    if ($normalized_exclude_slugs && in_array($current_slug, $normalized_exclude_slugs, true)) {
         $this->log('Skipping injection for excluded slug: ' . $current_slug);
         return $content;
     }
+    
+    $this->log('Slug not in exclude list, continuing with injection');
 
     // Injection context check
     $ctx = $this->settings['injection_context'];
