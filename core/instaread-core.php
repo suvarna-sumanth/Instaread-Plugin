@@ -221,51 +221,93 @@ class InstareadPlayer {
         }
     }
     
-    // Get current URL path using WordPress functions (more reliable than REQUEST_URI)
+    // Get current URL path - try multiple methods for reliability
     $current_slug = '';
-    if (function_exists('wp_parse_url')) {
-        $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
-        $parsed = wp_parse_url($request_uri);
-        $current_slug = $parsed['path'] ?? '';
-    } else {
-        $current_slug = parse_url($_SERVER["REQUEST_URI"] ?? '', PHP_URL_PATH) ?? '';
-    }
     
-    // Also try WordPress permalink structure
-    if (empty($current_slug) || $current_slug === '/') {
-        global $wp;
-        if (isset($wp->request) && !empty($wp->request)) {
-            $current_slug = '/' . $wp->request . '/';
-        } elseif (is_singular() && isset($GLOBALS['post'])) {
-            $permalink = get_permalink($GLOBALS['post']->ID);
+    // Method 1: Use WordPress get_permalink() for singular posts (most reliable)
+    // This works even when REQUEST_URI is wrong
+    if (is_singular() && isset($GLOBALS['post']) && !empty($GLOBALS['post']->ID)) {
+        $permalink = get_permalink($GLOBALS['post']->ID);
+        if ($permalink) {
             $parsed = parse_url($permalink);
-            $current_slug = $parsed['path'] ?? '';
+            $current_slug = isset($parsed['path']) ? $parsed['path'] : '';
+            if ($debug_mode) {
+                $this->log('Method 1 - get_permalink() result: ' . $permalink);
+                $this->log('Method 1 - Extracted path: ' . $current_slug);
+            }
         }
     }
     
-    // Normalize the slug (ensure it starts with / and ends with / for comparison)
-    $current_slug = rtrim($current_slug, '/');
-    if (empty($current_slug)) {
-        $current_slug = '/';
-    } else {
-        $current_slug = '/' . ltrim($current_slug, '/');
+    // Method 2: Use WordPress $wp->request if available
+    if (empty($current_slug) || $current_slug === '/') {
+        global $wp;
+        if (isset($wp) && isset($wp->request) && !empty($wp->request)) {
+            $current_slug = '/' . trim($wp->request, '/');
+            if ($debug_mode) {
+                $this->log('Method 2 - Got slug from $wp->request: ' . $current_slug);
+            }
+        }
     }
     
-    $this->log('Current slug for exclusion: ' . $current_slug);
-    $this->log('Exclude slugs list: ' . print_r($exclude_slugs, true));
+    // Method 3: Parse REQUEST_URI directly (fallback)
+    if (empty($current_slug) || $current_slug === '/') {
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+        if ($debug_mode) {
+            $this->log('Method 3 - Raw REQUEST_URI: ' . $request_uri);
+        }
+        // Remove query string
+        $request_uri = strtok($request_uri, '?');
+        if (!empty($request_uri) && $request_uri !== '/') {
+            $current_slug = $request_uri;
+            if ($debug_mode) {
+                $this->log('Method 3 - Got slug from REQUEST_URI: ' . $current_slug);
+            }
+        }
+    }
     
-    // Normalize exclude slugs for comparison
+    // Normalize the slug (remove trailing slash for comparison)
+    $current_slug = trim($current_slug);
+    if (empty($current_slug) || $current_slug === '/') {
+        $current_slug = '/';
+    } else {
+        // Ensure it starts with /
+        if (substr($current_slug, 0, 1) !== '/') {
+            $current_slug = '/' . $current_slug;
+        }
+        // Remove trailing slash for comparison
+        $current_slug = rtrim($current_slug, '/');
+        if (empty($current_slug)) {
+            $current_slug = '/';
+        }
+    }
+    
+    if ($debug_mode) {
+        $this->log('Final normalized slug: ' . $current_slug);
+    }
+    
+    if ($debug_mode) {
+        $this->log('Current slug for exclusion: ' . $current_slug);
+        $this->log('Exclude slugs list: ' . print_r($exclude_slugs, true));
+    }
+    
+    // Normalize exclude slugs for comparison (remove trailing slashes)
     $normalized_exclude_slugs = array_map(function($slug) {
+        $slug = trim($slug);
         $slug = rtrim($slug, '/');
-        return empty($slug) ? '/' : '/' . ltrim($slug, '/');
+        return empty($slug) ? '/' : $slug;
     }, $exclude_slugs);
     
+    // Check if current slug matches any exclude slug
     if ($normalized_exclude_slugs && in_array($current_slug, $normalized_exclude_slugs, true)) {
-        $this->log('Skipping injection for excluded slug: ' . $current_slug);
+        if ($debug_mode) {
+            $this->log('Skipping injection for excluded slug: ' . $current_slug);
+        }
         return $content;
     }
     
-    $this->log('Slug not in exclude list, continuing with injection');
+    if ($debug_mode) {
+        $this->log('Slug not in exclude list, continuing with injection. Current: "' . $current_slug . '"');
+    }
 
     // Injection context check
     $ctx = $this->settings['injection_context'];
