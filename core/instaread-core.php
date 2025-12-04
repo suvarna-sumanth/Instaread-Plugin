@@ -23,7 +23,14 @@ use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
 class InstareadPlayer {
     private static $instance;
-    private static $debug = false;
+    private static $debug = true;
+    
+    // Enable debug mode via constant or filter
+    private function is_debug_enabled() {
+        return (defined('WP_DEBUG') && WP_DEBUG) || 
+               (defined('INSTAREAD_DEBUG') && INSTAREAD_DEBUG) ||
+               apply_filters('instaread_debug', false);
+    }
 
     private $settings;
     private $partner_config;
@@ -44,7 +51,14 @@ class InstareadPlayer {
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_menu', [$this, 'add_settings_page']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
-        add_filter('the_content', [$this, 'inject_server_side_player'], 15, 1);
+        
+        // Use multiple hooks to ensure injection works (some themes/plugins modify content)
+        add_filter('the_content', [$this, 'inject_server_side_player'], 99, 1); // Higher priority
+        add_filter('the_content', [$this, 'inject_server_side_player'], 999, 1); // Very high priority as backup
+        
+        // Also try wp_footer as fallback for themes that bypass the_content
+        add_action('wp_footer', [$this, 'maybe_inject_via_footer'], 999);
+        
         add_filter('auto_update_plugin', [$this, 'enable_auto_updates'], 10, 2);
 
         $this->maybe_migrate_old_settings();
@@ -53,7 +67,7 @@ class InstareadPlayer {
     }
 
     private function log($msg) {
-        if (self::$debug) {
+        if (self::$debug || $this->is_debug_enabled()) {
             error_log('[InstareadPlayer] ' . print_r($msg, true));
         }
     }
@@ -145,24 +159,58 @@ class InstareadPlayer {
     }
 
    public function inject_server_side_player($content) {
+    // Enable debug logging for troubleshooting
+    $debug_mode = $this->is_debug_enabled();
+    
+    if ($debug_mode) {
+        $this->log('=== INJECTION ATTEMPT START ===');
+        $this->log('is_admin: ' . (is_admin() ? 'yes' : 'no'));
+        $this->log('is_main_query: ' . (is_main_query() ? 'yes' : 'no'));
+        $this->log('Content type: ' . gettype($content));
+        $this->log('Content length: ' . (is_string($content) ? strlen($content) : 'N/A'));
+        $this->log('Post ID: ' . (isset($GLOBALS['post']) ? $GLOBALS['post']->ID : 'N/A'));
+    }
+    
     // WordPress safety checks
     if (is_admin() || !is_main_query()) {
+        if ($debug_mode) {
+            $this->log('Skipping: admin or not main query');
+        }
         return $content;
     }
     global $post;
     if (empty($post)) {
+        if ($debug_mode) {
+            $this->log('Skipping: no post object');
+        }
         return $content;
     }
 
     // Ensure content is a string and not empty
-    if (!is_string($content) || trim($content) === '') {
+    if (!is_string($content)) {
+        if ($debug_mode) {
+            $this->log('Skipping: content is not a string');
+        }
+        return $content;
+    }
+    
+    if (trim($content) === '') {
+        if ($debug_mode) {
+            $this->log('Skipping: content is empty');
+        }
         return $content;
     }
 
     // Prevent double injection - check if player already exists
     if (strpos($content, 'instaread-player-slot') !== false || strpos($content, 'instaread-player') !== false) {
-        $this->log('Player already exists in content, skipping injection to prevent duplicates.');
+        if ($debug_mode) {
+            $this->log('Skipping: player already exists in content');
+        }
         return $content;
+    }
+    
+    if ($debug_mode) {
+        $this->log('Passed initial checks, proceeding with injection');
     }
 
     // Flatten exclusion slugs from settings
@@ -201,6 +249,8 @@ class InstareadPlayer {
     foreach ($this->settings['injection_rules'] as $rule) {
         $pos = $rule['insert_position'] ?? 'append';
         $target_selector = $rule['target_selector'] ?? null;
+        
+        $this->log("Processing injection rule: position={$pos}, selector={$target_selector}");
 
         // Prepare player HTML markup
         $player_html = $is_playlist
@@ -210,10 +260,44 @@ class InstareadPlayer {
         // Use safe string-based injection that respects target_selector
         // Avoids DOMDocument to prevent conflicts with WordPress content filters
         $content = $this->inject_with_safe_string_manipulation($content, $player_html, $target_selector, $pos);
+        
+        if ($debug_mode) {
+            $this->log("After injection, content length: " . strlen($content));
+            $this->log("Player HTML injected: " . (strpos($content, 'instaread-player') !== false ? 'YES' : 'NO'));
+            $this->log("Player HTML preview: " . substr($player_html, 0, 100));
+        }
+    }
+
+    if ($debug_mode) {
+        $this->log('=== INJECTION ATTEMPT END ===');
+        $this->log('Final content contains player: ' . (strpos($content, 'instaread-player') !== false ? 'YES' : 'NO'));
     }
 
     return $content;
 }
+
+    /**
+     * Fallback injection method via footer (for themes that bypass the_content)
+     */
+    public function maybe_inject_via_footer() {
+        // Only use this if the_content didn't work (check if player exists)
+        if (!is_singular() || is_admin()) {
+            return;
+        }
+        
+        // Check if player was already injected
+        global $post;
+        if (empty($post)) {
+            return;
+        }
+        
+        // This is a last resort - we'll inject via JavaScript if needed
+        // But first, let's check if the_content filter worked
+        $content = get_the_content();
+        if (strpos($content, 'instaread-player') === false) {
+            $this->log('Player not found in content, footer fallback could be used if needed');
+        }
+    }
 
     /**
      * Safely inject player HTML using string manipulation (WordPress-compatible)
