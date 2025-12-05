@@ -3,7 +3,7 @@
  * Plugin Name: Instaread Audio Player
  * Plugin URI: https://instaread.co
  * Description: Instaread auto-injecting player with partner configuration and full server-side rendering (no DOMDocument parsing, safer string injection)
- * Version: 4.1.0
+ * Version: 4.2.0
  * Author: Instaread Team
  */
 
@@ -23,8 +23,8 @@ use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
 class InstareadPlayer {
     private static $instance;
-    private static $debug = true;
-    
+    private static $debug = true; // Default to false for production
+
     // Enable debug mode via constant or filter
     private function is_debug_enabled() {
         return (defined('WP_DEBUG') && WP_DEBUG) || 
@@ -158,353 +158,248 @@ class InstareadPlayer {
         }
     }
 
-   public function inject_server_side_player($content) {
-    // Enable debug logging for troubleshooting
-    $debug_mode = $this->is_debug_enabled();
-    
-    if ($debug_mode) {
-        $this->log('=== INJECTION ATTEMPT START ===');
-        $this->log('is_admin: ' . (is_admin() ? 'yes' : 'no'));
-        $this->log('is_main_query: ' . (is_main_query() ? 'yes' : 'no'));
-        $this->log('Content type: ' . gettype($content));
-        $this->log('Content length: ' . (is_string($content) ? strlen($content) : 'N/A'));
-        $this->log('Post ID: ' . (isset($GLOBALS['post']) ? $GLOBALS['post']->ID : 'N/A'));
-    }
-    
-    // WordPress safety checks
-    if (is_admin() || !is_main_query()) {
-        if ($debug_mode) {
-            $this->log('Skipping: admin or not main query');
-        }
-        return $content;
-    }
-    global $post;
-    if (empty($post)) {
-        if ($debug_mode) {
-            $this->log('Skipping: no post object');
-        }
-        return $content;
-    }
-
-    // Ensure content is a string and not empty
-    if (!is_string($content)) {
-        if ($debug_mode) {
-            $this->log('Skipping: content is not a string');
-        }
-        return $content;
-    }
-    
-    if (trim($content) === '') {
-        if ($debug_mode) {
-            $this->log('Skipping: content is empty');
-        }
-        return $content;
-    }
-
-    // Prevent double injection - check if player already exists
-    if (strpos($content, 'instaread-player-slot') !== false || strpos($content, 'instaread-player') !== false) {
-        if ($debug_mode) {
-            $this->log('Skipping: player already exists in content');
-        }
-        return $content;
-    }
-    
-    if ($debug_mode) {
-        $this->log('Passed initial checks, proceeding with injection');
-    }
-
-    // Flatten exclusion slugs from settings
-    $exclude_slugs = [];
-    foreach ($this->settings['injection_rules'] as $rule) {
-        if (!empty($rule['exclude_slugs']) && is_array($rule['exclude_slugs'])) {
-            $exclude_slugs = array_merge($exclude_slugs, $rule['exclude_slugs']);
-        }
-    }
-    
-    // Get current URL path - try multiple methods for reliability
-    $current_slug = '';
-    
-    // Method 1: Use WordPress get_permalink() for singular posts (most reliable)
-    // This works even when REQUEST_URI is wrong
-    if (is_singular() && isset($GLOBALS['post']) && !empty($GLOBALS['post']->ID)) {
-        $permalink = get_permalink($GLOBALS['post']->ID);
-        if ($permalink) {
-            $parsed = parse_url($permalink);
-            $current_slug = isset($parsed['path']) ? $parsed['path'] : '';
-            if ($debug_mode) {
-                $this->log('Method 1 - get_permalink() result: ' . $permalink);
-                $this->log('Method 1 - Extracted path: ' . $current_slug);
-            }
-        }
-    }
-    
-    // Method 2: Use WordPress $wp->request if available
-    if (empty($current_slug) || $current_slug === '/') {
-        global $wp;
-        if (isset($wp) && isset($wp->request) && !empty($wp->request)) {
-            $current_slug = '/' . trim($wp->request, '/');
-            if ($debug_mode) {
-                $this->log('Method 2 - Got slug from $wp->request: ' . $current_slug);
-            }
-        }
-    }
-    
-    // Method 3: Parse REQUEST_URI directly (fallback)
-    if (empty($current_slug) || $current_slug === '/') {
-        $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
-        if ($debug_mode) {
-            $this->log('Method 3 - Raw REQUEST_URI: ' . $request_uri);
-        }
-        // Remove query string
-        $request_uri = strtok($request_uri, '?');
-        if (!empty($request_uri) && $request_uri !== '/') {
-            $current_slug = $request_uri;
-            if ($debug_mode) {
-                $this->log('Method 3 - Got slug from REQUEST_URI: ' . $current_slug);
-            }
-        }
-    }
-    
-    // Normalize the slug (remove trailing slash for comparison)
-    $current_slug = trim($current_slug);
-    if (empty($current_slug) || $current_slug === '/') {
-        $current_slug = '/';
-    } else {
-        // Ensure it starts with /
-        if (substr($current_slug, 0, 1) !== '/') {
-            $current_slug = '/' . $current_slug;
-        }
-        // Remove trailing slash for comparison
-        $current_slug = rtrim($current_slug, '/');
-        if (empty($current_slug)) {
-            $current_slug = '/';
-        }
-    }
-    
-    if ($debug_mode) {
-        $this->log('Final normalized slug: ' . $current_slug);
-    }
-    
-    if ($debug_mode) {
-        $this->log('Current slug for exclusion: ' . $current_slug);
-        $this->log('Exclude slugs list: ' . print_r($exclude_slugs, true));
-    }
-    
-    // Normalize exclude slugs for comparison (remove trailing slashes)
-    $normalized_exclude_slugs = array_map(function($slug) {
-        $slug = trim($slug);
-        $slug = rtrim($slug, '/');
-        return empty($slug) ? '/' : $slug;
-    }, $exclude_slugs);
-    
-    // Check if current slug matches any exclude slug
-    if ($normalized_exclude_slugs && in_array($current_slug, $normalized_exclude_slugs, true)) {
-        if ($debug_mode) {
-            $this->log('Skipping injection for excluded slug: ' . $current_slug);
-        }
-        return $content;
-    }
-    
-    if ($debug_mode) {
-        $this->log('Slug not in exclude list, continuing with injection. Current: "' . $current_slug . '"');
-    }
-
-    // Injection context check
-    $ctx = $this->settings['injection_context'];
-    if ($ctx === 'singular' && !is_singular()) {
-        $this->log('Skipping injection: not singular context');
-        return $content;
-    }
-
-    $publication = $this->settings['publication'];
-    if (!empty($this->partner_config['dynamic_publication_from_host'])) {
-        $host_parts = explode('.', parse_url(home_url(), PHP_URL_HOST));
-        $publication = reset($host_parts) ?: $publication;
-    }
-
-    $is_playlist = !empty($this->partner_config['isPlaylist']);
-    $player_type = $this->partner_config['playerType'] ?? '';
-    $color = $this->partner_config['color'] ?? '#59476b';
-    $slot_css = $this->partner_config['slot_css'] ?? 'min-height:144px;';
-    $playlist_height = $this->partner_config['playlist_height'] ?? '80vh';
-
-    foreach ($this->settings['injection_rules'] as $rule) {
-        $pos = $rule['insert_position'] ?? 'append';
-        $target_selector = $rule['target_selector'] ?? null;
+    public function inject_server_side_player($content) {
+        $debug_mode = $this->is_debug_enabled();
         
-        $this->log("Processing injection rule: position={$pos}, selector={$target_selector}");
-
-        // Prepare player HTML markup
-        $player_html = $is_playlist
-            ? $this->render_playlist($publication, $playlist_height)
-            : $this->render_single($publication, $player_type, $color, $slot_css);
-
-        // Use safe string-based injection that respects target_selector
-        // Avoids DOMDocument to prevent conflicts with WordPress content filters
-        $content = $this->inject_with_safe_string_manipulation($content, $player_html, $target_selector, $pos);
-        
-        if ($debug_mode) {
-            $this->log("After injection, content length: " . strlen($content));
-            $this->log("Player HTML injected: " . (strpos($content, 'instaread-player') !== false ? 'YES' : 'NO'));
-            $this->log("Player HTML preview: " . substr($player_html, 0, 100));
+        // 1. Global Homepage Check - Absolute Exclusion
+        // We check is_front_page() and is_home() to catch all homepage variants
+        if (is_front_page() || is_home()) {
+             if ($debug_mode) $this->log('Skipping injection: Homepage detected (is_front_page or is_home).');
+             return $content;
         }
-    }
 
-    if ($debug_mode) {
-        $this->log('=== INJECTION ATTEMPT END ===');
-        $this->log('Final content contains player: ' . (strpos($content, 'instaread-player') !== false ? 'YES' : 'NO'));
-    }
-
-    return $content;
-}
-
-    /**
-     * Fallback injection method via footer (for themes that bypass the_content)
-     */
-    public function maybe_inject_via_footer() {
-        // Only use this if the_content didn't work (check if player exists)
-        if (!is_singular() || is_admin()) {
-            return;
+        // WordPress safety checks
+        if (is_admin() || !is_main_query()) {
+            return $content;
         }
-        
-        // Check if player was already injected
         global $post;
         if (empty($post)) {
-            return;
-        }
-        
-        // This is a last resort - we'll inject via JavaScript if needed
-        // But first, let's check if the_content filter worked
-        $content = get_the_content();
-        if (strpos($content, 'instaread-player') === false) {
-            $this->log('Player not found in content, footer fallback could be used if needed');
-        }
-    }
-
-    /**
-     * Safely inject player HTML using string manipulation (WordPress-compatible)
-     * Respects target_selector and preserves HTML structure without DOMDocument
-     */
-    private function inject_with_safe_string_manipulation($content, $player_html, $target_selector, $insert_position) {
-        // Validate inputs
-        if (!is_string($content) || !is_string($player_html)) {
-            $this->log('Invalid content or player HTML, skipping injection.');
             return $content;
         }
 
-        // Ensure content is not empty
-        if (trim($content) === '') {
-            return $content . $player_html;
+        // Ensure content is a string and not empty
+        if (!is_string($content) || trim($content) === '') {
+            return $content;
         }
 
-        // If no target selector, use simple prepend/append
+        // Prevent double injection
+        if (strpos($content, 'instaread-player-slot') !== false || strpos($content, 'instaread-player') !== false) {
+            return $content;
+        }
+
+        // Flatten exclusion slugs from settings
+        $exclude_slugs = [];
+        foreach ($this->settings['injection_rules'] as $rule) {
+            if (!empty($rule['exclude_slugs']) && is_array($rule['exclude_slugs'])) {
+                $exclude_slugs = array_merge($exclude_slugs, $rule['exclude_slugs']);
+            }
+        }
+        
+        // Get current URL path
+        $current_slug = '';
+        if (is_singular() && isset($GLOBALS['post']) && !empty($GLOBALS['post']->ID)) {
+            $permalink = get_permalink($GLOBALS['post']->ID);
+            if ($permalink) {
+                $parsed = parse_url($permalink);
+                $current_slug = isset($parsed['path']) ? $parsed['path'] : '';
+            }
+        }
+        
+        if (empty($current_slug) || $current_slug === '/') {
+            $request_uri = isset($_SERVER['REQUEST_URI']) ? strtok($_SERVER['REQUEST_URI'], '?') : '';
+            if (!empty($request_uri) && $request_uri !== '/') {
+                $current_slug = $request_uri;
+            }
+        }
+        
+        // Normalize slug
+        $current_slug = trim($current_slug);
+        if (empty($current_slug) || $current_slug === '/') {
+            $current_slug = '/';
+        } else {
+            if (substr($current_slug, 0, 1) !== '/') $current_slug = '/' . $current_slug;
+            $current_slug = rtrim($current_slug, '/');
+            if (empty($current_slug)) $current_slug = '/';
+        }
+        
+        // Check exclusion slugs
+        $normalized_exclude_slugs = array_map(function($slug) {
+            $slug = trim($slug);
+            $slug = rtrim($slug, '/');
+            return empty($slug) ? '/' : $slug;
+        }, $exclude_slugs);
+        
+        if ($normalized_exclude_slugs && in_array($current_slug, $normalized_exclude_slugs, true)) {
+            if ($debug_mode) $this->log('Skipping injection for excluded slug: ' . $current_slug);
+            return $content;
+        }
+
+        // Injection context check (Singular only)
+        $ctx = $this->settings['injection_context'];
+        if ($ctx === 'singular') {
+            $is_singular_post = false;
+            if (isset($GLOBALS['post']) && !empty($GLOBALS['post']->ID)) {
+                $post_type = get_post_type($GLOBALS['post']->ID);
+                if ($post_type && in_array($post_type, ['post', 'page']) || get_post_type_object($post_type)) {
+                    if (!is_archive() && !is_category() && !is_tag() && !is_tax()) {
+                        $is_singular_post = true;
+                    }
+                }
+            }
+            if (!$is_singular_post) $is_singular_post = is_singular();
+            
+            if (!$is_singular_post) {
+                if ($debug_mode) $this->log('Skipping injection: not singular context');
+                return $content;
+            }
+        }
+
+        $publication = $this->settings['publication'];
+        if (!empty($this->partner_config['dynamic_publication_from_host'])) {
+            $host_parts = explode('.', parse_url(home_url(), PHP_URL_HOST));
+            $publication = reset($host_parts) ?: $publication;
+        }
+
+        $is_playlist = !empty($this->partner_config['isPlaylist']);
+        $player_type = $this->partner_config['playerType'] ?? '';
+        $color = $this->partner_config['color'] ?? '#59476b';
+        $slot_css = $this->partner_config['slot_css'] ?? 'min-height:144px;';
+        $playlist_height = $this->partner_config['playlist_height'] ?? '80vh';
+
+        foreach ($this->settings['injection_rules'] as $rule) {
+            $pos = $rule['insert_position'] ?? 'append';
+            $target_selector = $rule['target_selector'] ?? null;
+            
+            if ($debug_mode) $this->log("Processing rule: position={$pos}, selector={$target_selector}");
+
+            $player_html = $is_playlist
+                ? $this->render_playlist($publication, $playlist_height)
+                : $this->render_single($publication, $player_type, $color, $slot_css);
+
+            // Safe string injection
+            $content = $this->inject_with_safe_string_manipulation($content, $player_html, $target_selector, $pos);
+        }
+
+        return $content;
+    }
+
+    public function maybe_inject_via_footer() {
+        if (is_front_page() || is_home() || !is_singular() || is_admin()) {
+            return;
+        }
+        global $post;
+        if (empty($post)) return;
+        
+        $content = get_the_content();
+        if (strpos($content, 'instaread-player') === false) {
+            $this->log('Player not found in content, footer fallback available but skipped to avoid duplication issues.');
+        }
+    }
+
+    /**
+     * Safely inject player HTML using string manipulation.
+     * IMPORTANT: Fallbacks here now avoid splitting <p> tags by prepending/appending to the whole content instead.
+     */
+    private function inject_with_safe_string_manipulation($content, $player_html, $target_selector, $insert_position) {
+        $debug_mode = $this->is_debug_enabled();
+
+        if (!is_string($content) || !is_string($player_html) || trim($content) === '') {
+            return $content; // Don't inject if invalid
+        }
+
+        // 1. No Selector -> Simple Prepend/Append
         if (empty($target_selector)) {
-            if ($insert_position === 'prepend') {
+            if ($insert_position === 'prepend' || $insert_position === 'inside_first_child' || $insert_position === 'before_element') {
                 return $player_html . $content;
             }
             return $content . $player_html;
         }
 
-        // Find target element using safe string matching
+        // 2. Try to find Target
         $target_info = $this->find_target_element($content, $target_selector);
         
+        // 3. FALLBACK: If Selector Not Found
         if (!$target_info) {
-            $this->log("Target selector '{$target_selector}' not found, appending to content.");
-            return $content . $player_html;
+            if ($debug_mode) $this->log("Target selector '{$target_selector}' not found. Using safe fallback.");
+
+            switch ($insert_position) {
+                case 'inside_first_child':
+                case 'prepend':
+                case 'before_element':
+                    // Safe Fallback: Just put it at the top. 
+                    // We REMOVED the <p> regex check here because it was breaking layouts.
+                    if ($debug_mode) $this->log("Fallback: Prepending player to content.");
+                    return $player_html . $content;
+                    
+                case 'inside_last_child':
+                case 'inside_element':
+                case 'append':
+                case 'after_element':
+                default:
+                    // Safe Fallback: Just put it at the bottom.
+                    if ($debug_mode) $this->log("Fallback: Appending player to content.");
+                    return $content . $player_html;
+            }
         }
         
-        // Validate target info before injection
+        // 4. Inject at Position (Target Found)
         if (!isset($target_info['open_pos']) || $target_info['open_pos'] < 0 || $target_info['open_pos'] >= strlen($content)) {
-            $this->log('Invalid target position, appending to content.');
             return $content . $player_html;
         }
         
-        // Inject based on position relative to target element
         try {
             return $this->inject_at_position($content, $player_html, $target_info, $insert_position);
         } catch (Exception $e) {
-            $this->log('Error during injection: ' . $e->getMessage() . ' - Appending to content.');
+            if ($debug_mode) $this->log('Error during injection: ' . $e->getMessage());
             return $content . $player_html;
         }
     }
 
-    /**
-     * Find target element in content using safe string matching
-     * Returns array with element info or false if not found
-     * Supports: .class, #id, tag, .parent > child, .parent > child:pseudo
-     */
     private function find_target_element($content, $selector) {
-        // Validate inputs
         if (!is_string($content) || !is_string($selector) || trim($content) === '' || trim($selector) === '') {
             return false;
         }
 
         $selector = trim($selector);
         
-        // Handle child combinator: .parent > child or .parent > child:pseudo
+        // Handle child combinator: .parent > child
         if (preg_match('/^([^\s>]+)\s*>\s*([a-zA-Z0-9_-]+)(:.*)?$/', $selector, $child_matches)) {
             $parent_selector = trim($child_matches[1]);
             $child_tag = $child_matches[2];
-            $pseudo = isset($child_matches[3]) ? $child_matches[3] : '';
             
-            // Find parent element first
             $parent_info = $this->find_target_element($content, $parent_selector);
-            if (!$parent_info) {
-                return false;
-            }
+            if (!$parent_info) return false;
             
-            // Look for first child of specified tag within parent
             $parent_after_open = $parent_info['after_open'];
             $parent_close_pos = $parent_info['close_pos'] ?? strlen($content);
-            
-            // Search for first child tag within parent
             $parent_content = substr($content, $parent_after_open, ($parent_close_pos - $parent_after_open));
             
-            // Find first occurrence of child tag (for :first-of-type)
+            // Find first child tag
             if (preg_match('/<' . preg_quote($child_tag, '/') . '\b[^>]*>/i', $parent_content, $child_match, PREG_OFFSET_CAPTURE)) {
                 $child_open_pos = $parent_after_open + $child_match[0][1];
                 $child_open_tag = $child_match[0][0];
                 $child_tag_name = strtolower($child_tag);
-                
-                // Find matching closing tag for child
                 $child_after_open = $child_open_pos + strlen($child_open_tag);
+                
+                // Find closing tag (simplified depth for child)
                 $remaining = substr($content, $child_after_open);
+                $depth = 1; $search_pos = 0; $child_close_pos = false;
                 
-                $depth = 1;
-                $search_pos = 0;
-                $child_close_pos = false;
-                $max_iterations = 1000; // Safety limit to prevent infinite loops
-                $iteration = 0;
-                
-                while ($depth > 0 && $iteration < $max_iterations) {
-                    $iteration++;
-                    if (!preg_match('/<\/?' . preg_quote($child_tag_name, '/') . '(\s[^>]*)?>/i', $remaining, $tag_match, PREG_OFFSET_CAPTURE, $search_pos)) {
-                        break; // No more matches
-                    }
-                    
-                    $match_str = $tag_match[0][0];
-                    $match_pos = $tag_match[0][1];
-                    
-                    // Skip self-closing tags (they don't affect depth)
-                    if (preg_match('/\/\s*>$/', $match_str)) {
-                        $search_pos = $match_pos + strlen($match_str);
-                        continue;
-                    }
-                    
-                    if (strpos($match_str, '</') === 0) {
-                        $depth--;
-                        if ($depth === 0) {
-                            $child_close_pos = $child_after_open + $match_pos + strlen($match_str);
-                            break;
-                        }
-                    } else {
-                        $depth++;
-                    }
-                    $search_pos = $match_pos + strlen($match_str);
-                }
-                
-                if ($iteration >= $max_iterations) {
-                    $this->log("Warning: Max iterations reached while finding closing tag for child '{$child_tag_name}'");
+                while ($depth > 0 && $search_pos < strlen($remaining)) {
+                     if (!preg_match('/<\/?' . preg_quote($child_tag_name, '/') . '(\s[^>]*)?>/i', $remaining, $tag_match, PREG_OFFSET_CAPTURE, $search_pos)) break;
+                     $match_str = $tag_match[0][0];
+                     $match_pos = $tag_match[0][1];
+                     
+                     if (preg_match('/\/\s*>$/', $match_str)) { // Self-closing
+                         $search_pos = $match_pos + strlen($match_str); continue;
+                     }
+                     if (strpos($match_str, '</') === 0) { $depth--; } else { $depth++; }
+                     
+                     if ($depth === 0) {
+                         $child_close_pos = $child_after_open + $match_pos + strlen($match_str);
+                         break;
+                     }
+                     $search_pos = $match_pos + strlen($match_str);
                 }
                 
                 return [
@@ -512,39 +407,29 @@ class InstareadPlayer {
                     'open_pos' => $child_open_pos,
                     'open_tag' => $child_open_tag,
                     'open_tag_len' => strlen($child_open_tag),
-                    'close_pos' => $child_close_pos !== false ? $child_close_pos : null,
+                    'close_pos' => $child_close_pos ?: null,
                     'after_open' => $child_after_open
                 ];
             }
-            
             return false;
         }
         
-        // Simple selector: class, ID, or tag
+        // Simple selectors
         $is_class = preg_match('/^\.([a-zA-Z0-9_-]+)/', $selector, $class_matches);
         $is_id = preg_match('/^#([a-zA-Z0-9_-]+)/', $selector, $id_matches);
         $is_tag = preg_match('/^([a-zA-Z0-9_-]+)$/', $selector, $tag_matches);
         
-        $pattern = null;
-        $tag_name = null;
+        $pattern = null; $tag_name = null;
         
         if ($is_class) {
             $class_name = $class_matches[1];
-            // Match opening tag with class attribute (handles various quote styles and spacing)
-            $pattern = '/<([a-zA-Z][a-zA-Z0-9]*)[^>]*\s+class\s*=\s*["\']([^"\']*\b' . preg_quote($class_name, '/') . '\b[^"\']*)["\'][^>]*>/i';
+            $pattern = '/<([a-zA-Z0-9]+)[^>]*\s+class\s*=\s*["\']([^"\']*\b' . preg_quote($class_name, '/') . '\b[^"\']*)["\'][^>]*>/i';
         } elseif ($is_id) {
             $id_name = $id_matches[1];
-            // Match opening tag with id attribute
-            $pattern = '/<([a-zA-Z][a-zA-Z0-9]*)[^>]*\s+id\s*=\s*["\']' . preg_quote($id_name, '/') . '["\'][^>]*>/i';
+            $pattern = '/<([a-zA-Z0-9]+)[^>]*\s+id\s*=\s*["\']' . preg_quote($id_name, '/') . '["\'][^>]*>/i';
         } elseif ($is_tag) {
             $tag_name = $tag_matches[1];
             $pattern = '/<' . preg_quote($tag_name, '/') . '\b[^>]*>/i';
-        } else {
-            // Complex selector - try to extract tag name
-            if (preg_match('/([a-zA-Z][a-zA-Z0-9]*)\s*$/', $selector, $tag_extract)) {
-                $tag_name = $tag_extract[1];
-                $pattern = '/<' . preg_quote($tag_name, '/') . '\b[^>]*>/i';
-            }
         }
         
         if (!$pattern || !preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
@@ -554,50 +439,20 @@ class InstareadPlayer {
         $open_pos = $matches[0][1];
         $open_tag = $matches[0][0];
         $tag_name = $tag_name ?: strtolower($matches[1][0]);
-        
-        // Find matching closing tag
         $after_open = $open_pos + strlen($open_tag);
+        
+        // Find closing tag
         $remaining = substr($content, $after_open);
+        $depth = 1; $search_pos = 0; $close_pos = false;
         
-        // Count depth to find matching closing tag
-        // This handles nested elements of the same type correctly
-        $depth = 1;
-        $search_pos = 0;
-        $close_pos = false;
-        $max_iterations = 1000; // Safety limit to prevent infinite loops
-        $iteration = 0;
-        
-        while ($depth > 0 && $iteration < $max_iterations) {
-            $iteration++;
-            if (!preg_match('/<\/?' . preg_quote($tag_name, '/') . '(\s[^>]*)?>/i', $remaining, $tag_match, PREG_OFFSET_CAPTURE, $search_pos)) {
-                break; // No more matches
-            }
-            
-            $match_str = $tag_match[0][0];
-            $match_pos = $tag_match[0][1];
-            
-            // Skip self-closing tags (they don't affect depth)
-            if (preg_match('/\/\s*>$/', $match_str)) {
-                $search_pos = $match_pos + strlen($match_str);
-                continue;
-            }
-            
-            if (strpos($match_str, '</') === 0) {
-                // Closing tag
-                $depth--;
-                if ($depth === 0) {
-                    $close_pos = $after_open + $match_pos + strlen($match_str);
-                    break;
-                }
-            } else {
-                // Opening tag (nested)
-                $depth++;
-            }
-            $search_pos = $match_pos + strlen($match_str);
-        }
-        
-        if ($iteration >= $max_iterations) {
-            $this->log("Warning: Max iterations reached while finding closing tag for '{$tag_name}'");
+        while ($depth > 0 && $search_pos < strlen($remaining)) {
+             if (!preg_match('/<\/?' . preg_quote($tag_name, '/') . '(\s[^>]*)?>/i', $remaining, $tag_match, PREG_OFFSET_CAPTURE, $search_pos)) break;
+             $match_str = $tag_match[0][0];
+             $match_pos = $tag_match[0][1];
+             if (preg_match('/\/\s*>$/', $match_str)) { $search_pos = $match_pos + strlen($match_str); continue; }
+             if (strpos($match_str, '</') === 0) { $depth--; } else { $depth++; }
+             if ($depth === 0) { $close_pos = $after_open + $match_pos + strlen($match_str); break; }
+             $search_pos = $match_pos + strlen($match_str);
         }
         
         return [
@@ -605,125 +460,76 @@ class InstareadPlayer {
             'open_pos' => $open_pos,
             'open_tag' => $open_tag,
             'open_tag_len' => strlen($open_tag),
-            'close_pos' => $close_pos !== false ? $close_pos : null,
+            'close_pos' => $close_pos ?: null,
             'after_open' => $after_open
         ];
     }
 
-    /**
-     * Inject player HTML at specified position relative to target element
-     * Preserves HTML structure and ensures safe string manipulation
-     */
     private function inject_at_position($content, $player_html, $target_info, $insert_position) {
-        // Validate target info
-        if (!is_array($target_info) || !isset($target_info['open_pos'])) {
-            $this->log('Invalid target info, appending to content.');
-            return $content . $player_html;
-        }
-
-        $tag_name = $target_info['tag_name'] ?? '';
         $open_pos = (int) $target_info['open_pos'];
-        $open_tag_len = (int) ($target_info['open_tag_len'] ?? 0);
         $close_pos = isset($target_info['close_pos']) ? (int) $target_info['close_pos'] : null;
-        $after_open = (int) ($target_info['after_open'] ?? $open_pos + $open_tag_len);
-        
-        // Validate positions are within content bounds
+        $after_open = (int) ($target_info['after_open']);
         $content_len = strlen($content);
-        if ($open_pos < 0 || $open_pos >= $content_len) {
-            $this->log('Invalid open position, appending to content.');
-            return $content . $player_html;
-        }
-        
-        if ($close_pos !== null && ($close_pos < 0 || $close_pos > $content_len)) {
-            $this->log('Invalid close position, using after_open position.');
-            $close_pos = null;
-        }
-        
-        if ($after_open < 0 || $after_open > $content_len) {
-            $this->log('Invalid after_open position, appending to content.');
-            return $content . $player_html;
-        }
-        
-        // Ensure positions are in correct order
-        if ($close_pos !== null && $close_pos <= $after_open) {
-            $this->log('Close position before after_open, adjusting.');
-            $close_pos = null;
-        }
-        
+
         switch ($insert_position) {
             case 'before_element':
-                // Insert before target element opening tag - preserves all HTML structure
-                $content = substr_replace($content, $player_html, $open_pos, 0);
-                $this->log("Injected player before target element (preserving HTML structure).");
-                break;
+                // Before the container starts (siblings)
+                $this->log("Injecting before element.");
+                return substr_replace($content, $player_html, $open_pos, 0);
                 
             case 'after_element':
-                // Insert after target element closing tag (or after opening if no closing)
-                // This ensures the target element remains intact
+                // After the container ends (siblings)
                 if ($close_pos !== null && $close_pos <= $content_len) {
-                    $content = substr_replace($content, $player_html, $close_pos, 0);
-                    $this->log("Injected player after target element closing tag (preserving HTML structure).");
-                } else {
-                    // Self-closing or no closing tag found - insert after opening tag
-                    $content = substr_replace($content, $player_html, $after_open, 0);
-                    $this->log("Injected player after target element opening tag (no closing tag found, preserving structure).");
+                    $this->log("Injecting after element closing tag.");
+                    return substr_replace($content, $player_html, $close_pos, 0);
                 }
-                break;
+                // Fallback for unclosed tags
+                return substr_replace($content, $player_html, $after_open, 0);
                 
             case 'inside_first_child':
             case 'prepend':
-                // Insert as first child - right after opening tag
-                // This preserves the target element's structure and all its children
-                $content = substr_replace($content, $player_html, $after_open, 0);
-                $this->log("Injected player as first child inside target element (preserving HTML structure).");
-                break;
+                // Inside container, at the very top (first child)
+                $this->log("Injecting as first child (inside).");
+                return substr_replace($content, $player_html, $after_open, 0);
                 
             case 'inside_last_child':
             case 'inside_element':
             case 'append':
-                // Insert as last child - before closing tag (or after opening if no closing)
-                // This ensures all existing children remain intact
-                if ($close_pos !== null && $close_pos <= $content_len) {
-                    $content = substr_replace($content, $player_html, $close_pos, 0);
-                    $this->log("Injected player as last child inside target element (preserving HTML structure).");
-                } else {
-                    // No closing tag - insert after opening tag
-                    $content = substr_replace($content, $player_html, $after_open, 0);
-                    $this->log("Injected player after opening tag (no closing tag found, preserving structure).");
-                }
-                break;
-                
             default:
-                // Fallback: append to content (safest option)
-                $content .= $player_html;
-                $this->log("Injected player using default (append) to preserve content.");
-                break;
+                // Inside container, at the very bottom (last child)
+                if ($close_pos !== null && $close_pos <= $content_len) {
+                    $close_tag_start_pos = $close_pos - strlen(substr($content, $close_pos - 5, 5)); // rough, actually we need start of closing tag
+                    // Easier: regex back from close_pos to find start of </tag>
+                    // But we already computed close_pos as END of tag. 
+                    // Let's just use regex to find the start of the closing tag near $close_pos
+                    // Correct approach: logic in find_target_element gives us the END of closing tag.
+                    // To insert BEFORE the closing tag, we need the length of that closing tag.
+                    // Simplified: The find_target logic above gives close_pos as the end. 
+                    // We need to insert before that closing tag begins.
+                    
+                    // Re-scanning just the end part to find start of </tag>
+                    $end_chunk = substr($content, 0, $close_pos);
+                    $last_tag_pos = strrpos($end_chunk, '<');
+                    
+                    $this->log("Injecting as last child (inside).");
+                    return substr_replace($content, $player_html, $last_tag_pos, 0);
+                }
+                return substr_replace($content, $player_html, $after_open, 0);
         }
-        
-        return $content;
     }
 
-
- private function render_single($publication, $type, $color, $slot_css) { 
-    $ir_version = floor(time() / 60) * 60000;
-    $this->log("Rendering single player: publication=$publication, type=$type");
-
-    return sprintf(
-        '<div class="instaread-player-slot" style="%s">
-            <instaread-player publication="%s" playertype="%s" color="%s"></instaread-player>
-            <script type="module" src="https://instaread.co/js/instaread.%s.js?version=%d"></script>
-        </div>',
-        esc_attr($slot_css),
-        esc_html($publication),
-        esc_html($type),
-        esc_html($color),
-        esc_html($publication), // use esc_html for attributes, not esc_js
-        $ir_version
-    );
-}
+    private function render_single($publication, $type, $color, $slot_css) { 
+        $ir_version = floor(time() / 60) * 60000;
+        return sprintf(
+            '<div class="instaread-player-slot" style="%s">
+                <instaread-player publication="%s" playertype="%s" color="%s"></instaread-player>
+                <script type="module" src="https://instaread.co/js/instaread.%s.js?version=%d"></script>
+            </div>',
+            esc_attr($slot_css), esc_html($publication), esc_html($type), esc_html($color), esc_html($publication), $ir_version
+        );
+    }
 
     private function render_playlist($publication, $height) {
-        $this->log("Rendering playlist player: publication=$publication, height=$height");
         return sprintf(
             '<div class="instaread-player-slot" style="height:%s;min-height:%s;">
                 <instaread-player publication="%s" p_type="playlist" height="%s"></instaread-player>
@@ -742,7 +548,6 @@ class InstareadPlayer {
         if ($old) {
             update_option('instaread_settings', ['publication' => $old['publication'] ?? '']);
             delete_option('instaread_legacy_settings');
-            $this->log('Migrated old settings to new option.');
         }
     }
 }
