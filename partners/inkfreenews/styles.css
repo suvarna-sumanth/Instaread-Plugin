@@ -1,0 +1,33 @@
+.instaread-player-slot {
+    width: 100%;
+  }
+   
+  @media only screen and (max-width: 638px) {
+    .instaread-player-slot {
+      height: 236px !important;
+    }
+  }
+   
+  @media only screen and (min-width: 639px) and (max-width: 767px) {
+    .instaread-player-slot {
+      height: 160px !important;
+         display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+  }
+   
+  @media only screen and (min-width: 768px) and (max-width: 873px) {
+    .instaread-player-slot {
+      height: 236px !important;
+    }
+  }
+   
+  @media only screen and (min-width: 874px) {
+    .instaread-player-slot {
+      height: 160px !important;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+  }
