@@ -348,10 +348,95 @@ class InstareadPlayer {
             $parent_close_pos  = $parent_info['close_pos'] ?? strlen($content);
             $parent_content    = substr($content, $parent_after_open, $parent_close_pos - $parent_after_open);
 
-            if (preg_match('/<' . preg_quote($child_tag, '/') . '\b[^>]*>/i', $parent_content, $child_match, PREG_OFFSET_CAPTURE)) {
+            // Find all matching DIRECT child tags, skipping excluded classes
+            $child_tag_name = strtolower($child_tag);
+            $excluded_classes = ['wp-caption-text']; // Classes to skip when finding child elements
+            $search_offset = 0;
+            $child_match = null;
+            
+            // Find all child tags and check if they are direct children
+            while (preg_match('/<' . preg_quote($child_tag, '/') . '\b[^>]*>/i', $parent_content, $match, PREG_OFFSET_CAPTURE, $search_offset)) {
+                $tag_html = $match[0][0];
+                $tag_pos = $match[0][1];
+                
+                // Check if this is a direct child by verifying no unclosed tags before it
+                $before_tag = substr($parent_content, 0, $tag_pos);
+                // Count opening and closing tags - if balanced, this is likely a direct child
+                $open_count = preg_match_all('/<[^\/!][^>]*>/i', $before_tag);
+                $close_count = preg_match_all('/<\/[^>]+>/i', $before_tag);
+                
+                // If tags are balanced (or we're at the start), this is a direct child
+                $is_direct_child = ($open_count === $close_count);
+                
+                if ($is_direct_child) {
+                    // Check if this element has an excluded class
+                    $should_skip = false;
+                    foreach ($excluded_classes as $excluded_class) {
+                        if (preg_match('/\bclass\s*=\s*["\']([^"\']*\b' . preg_quote($excluded_class, '/') . '\b[^"\']*)["\']/i', $tag_html)) {
+                            $should_skip = true;
+                            break;
+                        }
+                    }
+                    
+                    // Also check if this paragraph is inside a wp-caption div by looking backwards
+                    if (!$should_skip) {
+                        $lookback = substr($parent_content, max(0, $tag_pos - 500), $tag_pos);
+                        // Check if there's an unclosed wp-caption div before this paragraph
+                        $wp_caption_open = preg_match_all('/<div[^>]*\bclass\s*=\s*["\'][^"\']*\bwp-caption\b[^"\']*["\'][^>]*>/i', $lookback);
+                        $wp_caption_close = preg_match_all('/<\/div>/i', $lookback);
+                        // If there are more opens than closes, we're inside a wp-caption
+                        if ($wp_caption_open > $wp_caption_close) {
+                            $should_skip = true;
+                        }
+                    }
+                    
+                    if (!$should_skip) {
+                        $child_match = $match;
+                        break;
+                    }
+                }
+                
+                // Move search position past this match
+                $search_offset = $tag_pos + strlen($tag_html);
+            }
+            
+            // Fallback: if no direct child found, look for first paragraph (not necessarily direct child) 
+            // that's not inside a wp-caption div
+            if (!$child_match) {
+                $search_offset = 0;
+                $wp_caption_depth = 0;
+                while (preg_match('/<(' . preg_quote($child_tag, '/') . '\b[^>]*>|div[^>]*\bclass\s*=\s*["\'][^"\']*\bwp-caption\b[^"\']*["\'][^>]*>|<\/div>)/i', $parent_content, $match, PREG_OFFSET_CAPTURE, $search_offset)) {
+                    $tag_html = $match[0][0];
+                    $tag_pos = $match[0][1];
+                    
+                    // Track wp-caption div depth
+                    if (preg_match('/<div[^>]*\bclass\s*=\s*["\'][^"\']*\bwp-caption\b[^"\']*["\'][^>]*>/i', $tag_html)) {
+                        $wp_caption_depth++;
+                    } elseif (preg_match('/<\/div>/i', $tag_html) && $wp_caption_depth > 0) {
+                        $wp_caption_depth--;
+                    } elseif (preg_match('/<' . preg_quote($child_tag, '/') . '\b[^>]*>/i', $tag_html) && $wp_caption_depth === 0) {
+                        // Found a paragraph that's not inside a wp-caption div
+                        // Check if it has excluded class
+                        $should_skip = false;
+                        foreach ($excluded_classes as $excluded_class) {
+                            if (preg_match('/\bclass\s*=\s*["\']([^"\']*\b' . preg_quote($excluded_class, '/') . '\b[^"\']*)["\']/i', $tag_html)) {
+                                $should_skip = true;
+                                break;
+                            }
+                        }
+                        if (!$should_skip) {
+                            $child_match = $match;
+                            break;
+                        }
+                    }
+                    
+                    $search_offset = $tag_pos + strlen($tag_html);
+                }
+            }
+            
+            if ($child_match) {
                 $child_open_pos  = $parent_after_open + $child_match[0][1];
                 $child_open_tag  = $child_match[0][0];
-                $child_tag_name  = strtolower($child_tag);
                 $child_after_open = $child_open_pos + strlen($child_open_tag);
 
                 // Simple closing search for child
@@ -393,9 +478,10 @@ class InstareadPlayer {
             return false;
         }
 
-        // Simple selectors (.class, #id, tag)
+        // Simple selectors (.class, #id, tag, tag.class)
         $is_class = preg_match('/^\.([a-zA-Z0-9_-]+)/', $selector, $class_matches);
         $is_id    = preg_match('/^#([a-zA-Z0-9_-]+)/', $selector, $id_matches);
+        $is_tag_class = preg_match('/^([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)$/', $selector, $tag_class_matches);
         $is_tag   = preg_match('/^([a-zA-Z0-9_-]+)$/', $selector, $tag_matches);
 
         $pattern = null;
@@ -407,6 +493,11 @@ class InstareadPlayer {
         } elseif ($is_id) {
             $id_name = $id_matches[1];
             $pattern = '/<([a-zA-Z0-9]+)[^>]*\s+id\s*=\s*["\']' . preg_quote($id_name, '/') . '["\'][^>]*>/i';
+        } elseif ($is_tag_class) {
+            // Tag with class: h6.font-inherit
+            $tag_name = strtolower($tag_class_matches[1]);
+            $class_name = $tag_class_matches[2];
+            $pattern = '/<' . preg_quote($tag_name, '/') . '\b[^>]*\s+class\s*=\s*["\']([^"\']*\b' . preg_quote($class_name, '/') . '\b[^"\']*)["\'][^>]*>/i';
         } elseif ($is_tag) {
             $tag_name = $tag_matches[1];
             $pattern  = '/<' . preg_quote($tag_name, '/') . '\b[^>]*>/i';
