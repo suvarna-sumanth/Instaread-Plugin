@@ -1,11 +1,10 @@
 {
-    "name": "Instaread Audio Player - whatsonstage",
-    "version": "4.2.0",
-    "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/whatsonstage-v4.2.0/whatsonstage-v4.2.0.zip",
-    "requires": "5.6",
-    "tested": "6.5",
-    "sections": {
-      "changelog": "<h4>4.2.0</h4><ul><li>Partner-specific build for whatsonstage</li></ul>"
-    }
+  "name": "Instaread Audio Player - whatsonstage",
+  "version": "4.2.0",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/whatsonstage-v4.2.0/whatsonstage-v4.2.0.zip",
+  "requires": "5.6",
+  "tested": "6.5",
+  "sections": {
+    "changelog": "<h4>4.2.0</h4><ul><li>Partner-specific build for whatsonstage</li></ul>"
   }
-  
+}
