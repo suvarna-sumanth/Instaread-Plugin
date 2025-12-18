@@ -1,7 +1,7 @@
 {
   "name": "Instaread Audio Player - getfitnow",
   "version": "1.0.0",
-  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/theatermania-v4.2.0/theatermania-v4.2.0.zip",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/getfitnow-v1.0.0/getfitnow-v1.0.0.zip",
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
