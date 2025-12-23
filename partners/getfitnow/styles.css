@@ -1,33 +1,26 @@
+@media only screen and (max-width: 644px) {
   .instaread-player-slot {
-    margin: 16px 0;
+    height: 236px !important;
   }
+}
 
-  @media only screen and (min-width: 656px) and (max-width: 766px) {
-    .instaread-player-slot {
-      height: 150px !important;
-    }
+/* 650px to 767px */
+@media only screen and (min-width: 645px) and (max-width: 767px) {
+  .instaread-player-slot {
+    height: 160px !important;
   }
+}
 
-  @media only screen and (max-width: 655px) {
-    .instaread-player-slot {
-      height: 220px !important;
-    }
+/* 768px to 966px */
+@media only screen and (min-width: 768px) and (max-width: 966px) {
+  .instaread-player-slot {
+    height: 236px !important;
   }
+}
 
-  @media only screen and (min-width: 768px) and (max-width: 910px) {
-    .instaread-player-slot {
-      height: 220px !important;
-    }
+/* 968px and above */
+@media only screen and (min-width: 968px) {
+  .instaread-player-slot {
+    height: 160px !important;
   }
-
-  @media only screen and (min-width: 911px) and (max-width: 1199px) {
-    .instaread-player-slot {
-      height: 150px !important;
-    }
-  }
-
-  @media only screen and (min-width: 1200px) {
-    .instaread-player-slot {
-      height: 150px !important;
-    }
-  }
+}
