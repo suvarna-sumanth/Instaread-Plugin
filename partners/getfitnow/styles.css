@@ -4,22 +4,19 @@
   }
 }
 
-/* 650px to 767px */
 @media only screen and (min-width: 645px) and (max-width: 767px) {
   .instaread-player-slot {
     height: 160px !important;
   }
 }
 
-/* 768px to 966px */
-@media only screen and (min-width: 768px) and (max-width: 966px) {
+@media only screen and (min-width: 768px) and (max-width: 910px) {
   .instaread-player-slot {
     height: 236px !important;
   }
 }
 
-/* 968px and above */
-@media only screen and (min-width: 968px) {
+@media only screen and (min-width: 911px) {
   .instaread-player-slot {
     height: 160px !important;
   }
