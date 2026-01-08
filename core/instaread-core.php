@@ -274,7 +274,15 @@ class InstareadPlayer {
                 ? $this->render_playlist($publication, $playlist_height)
                 : $this->render_single($publication, $player_type, $color, $slot_css);
 
+            // Store original content to check if injection succeeded
+            $original_content = $content;
             $content = $this->inject_with_safe_string_manipulation($content, $player_html, $target_selector, $pos);
+            
+            // If content was modified (injection succeeded), stop processing further rules
+            if ($content !== $original_content) {
+                if ($debug_mode) $this->log("Injection successful with selector: {$target_selector}. Skipping remaining rules.");
+                break;
+            }
         }
 
         return $content;
