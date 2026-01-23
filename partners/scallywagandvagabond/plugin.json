@@ -1,0 +1,11 @@
+{
+    "name": "Instaread Audio Player - scallywagandvagabond",
+    "version": "4.2.2",
+    "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/scallywagandvagabond-v4.2.2/scallywagandvagabond-v4.2.2.zip",
+    "requires": "5.6",
+    "tested": "6.5",
+    "sections": {
+        "changelog": "<h4>4.2.2</h4><ul><li>Partner-specific build for scallywagandvagabond</li></ul>"
+    }
+  }
+  
