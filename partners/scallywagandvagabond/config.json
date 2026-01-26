@@ -6,8 +6,8 @@
     "injection_strategy": "first",
     "injection_rules": [
       {
-        "target_selector": ".wp-caption alignnone",
-        "insert_position": "append",
+        "target_selector": "div.td-post-content > h2",
+        "insert_position": "before_element",
         "exclude_slugs": [
           "/",
           "/category/rumors/",

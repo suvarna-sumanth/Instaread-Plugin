@@ -6,8 +6,8 @@
     "injection_strategy": "first",
     "injection_rules": [
       {
-        "target_selector": ".entry",
-        "insert_position": "inside_first_child",
+        "target_selector": ".post-modified-info",
+        "insert_position": "before_element",
         "exclude_slugs": [
           "/",
           "/category/rumors/",

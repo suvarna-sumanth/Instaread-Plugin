@@ -1,6 +1,6 @@
 @media only screen and (max-width: 660px) {
     .instaread-player-slot {
-      height: 244px !important;
+      height: 236px !important;
       width: 100%;
     }
   }
@@ -13,7 +13,7 @@
 
   @media only screen and (min-width: 768px) and (max-width: 1018px) {
     .instaread-player-slot {
-      height: 244px !important;
+      height: 236px !important;
     }
   }
 
