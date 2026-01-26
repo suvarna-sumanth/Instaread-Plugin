@@ -1,0 +1,26 @@
+@media only screen and (max-width: 660px) {
+    .instaread-player-slot {
+      height: 236px !important;
+      width: 100%;
+    }
+  }
+
+  @media only screen and (min-width: 661px) and (max-width: 991px) {
+    .instaread-player-slot {
+      height: 160px !important;
+      width: 100%;
+    }
+  }
+
+  @media only screen and (min-width: 992px) and (max-width: 1199px) {
+    .instaread-player-slot {
+      height: 236px !important;
+      width: 100%;
+    }
+  }
+
+  @media only screen and (min-width: 1200px) {
+    .instaread-player-slot {
+      height: 160px !important;
+    }
+  }
