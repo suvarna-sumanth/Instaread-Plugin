@@ -71,12 +71,15 @@
           "/news/stratford-upon-avon-theatre/",
           "/shows/london-theatre/",
           "/tt-subscribe.html",
-          "/transport-topics-staff/"
+          "/transport-topics-staff/",
+          "/trending",
+          "/all-news/"
+
           
 
         ]
       }
     ],
-    "version": "4.2.2"
+    "version": "4.2.4"
   }
   
