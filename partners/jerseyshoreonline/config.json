@@ -6,8 +6,8 @@
     "injection_strategy": "first",
     "injection_rules": [
       {
-        "target_selector": ".td-a-rec-id-content_top > p",
-        "insert_position": "before_element",
+        "target_selector": ".td-a-rec-id-content_top",
+        "insert_position": "after_element",
         "exclude_slugs": [
           "/",
           "/category/rumors/",
