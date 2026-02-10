@@ -19,7 +19,7 @@
   }
 
   @media only screen and (min-width: 1020px) {
-    .instaread-audio-player {
+    .instaread-player-slot {
       height: 144px !important;
     }
   }
