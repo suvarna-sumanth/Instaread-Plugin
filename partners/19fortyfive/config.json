@@ -6,8 +6,8 @@
   "injection_strategy": "first",
   "injection_rules": [
     {
-      "target_selector": ".zox-post-body-wrap",
-      "insert_position": "inside_first_child",
+      "target_selector": ".zox-post-img-wrap",
+      "insert_position": "before_element",
       "exclude_slugs": [
         "/",
         "/category/rumors/",
