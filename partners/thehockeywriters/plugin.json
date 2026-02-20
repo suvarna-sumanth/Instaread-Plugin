@@ -1,0 +1,11 @@
+{
+    "name": "Instaread Audio Player - thehockeywriters",
+    "version": "4.2.4",
+    "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/thehockeywriters-v4.2.4/thehockeywriters-v4.2.4.zip",
+    "requires": "5.6",
+    "tested": "6.5",
+    "sections": {
+      "changelog": "<h4>4.2.4</h4><ul><li>Partner-specific build for thehockeywriters</li></ul>"
+    }
+  }
+  
