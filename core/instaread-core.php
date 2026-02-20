@@ -597,7 +597,7 @@ class InstareadPlayer {
         return sprintf(
             '<div class="instaread-player-slot" style="%s">
                 <instaread-player publication="%s" playertype="%s" color="%s"></instaread-player>
-                <script type="module" src="https://player.instaread.co/js/instaread.%s.js?version=%d"></script>
+                <script defer src="https://player.instaread.co/js/instaread.%s.js?version=%d"></script>
             </div>',
             esc_attr($slot_css),
             esc_html($publication),
@@ -607,6 +607,7 @@ class InstareadPlayer {
             $ir_version
         );
     }
+    
 
     private function render_playlist($publication, $height) {
         return sprintf(
