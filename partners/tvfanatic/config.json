@@ -2,7 +2,7 @@
   "partner_id": "tvfanatic",
   "domain": "tvfanatic.com",
   "publication": "tvfanatic",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

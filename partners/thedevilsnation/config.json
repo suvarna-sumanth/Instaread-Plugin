@@ -2,7 +2,7 @@
   "partner_id": "thedevilsnation",
   "domain": "thedevilsnation.com",
   "publication": "thedevilsnation",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

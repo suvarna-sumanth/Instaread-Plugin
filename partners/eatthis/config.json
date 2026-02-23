@@ -2,7 +2,7 @@
   "partner_id": "eatthis",
   "domain": "eatthis.com",
   "publication": "eatthis",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

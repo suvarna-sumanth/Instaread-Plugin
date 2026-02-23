@@ -2,7 +2,7 @@
   "partner_id": "nhlrumors",
   "domain": "nhlrumors.com",
   "publication": "nhlrumors",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

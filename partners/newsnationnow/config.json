@@ -2,7 +2,7 @@
   "partner_id": "newsnationnow",
   "domain": "newsnationnow.com",
   "publication": "newsnationnow",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

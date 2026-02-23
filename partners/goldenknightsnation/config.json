@@ -2,7 +2,7 @@
   "partner_id": "goldenknightsnation",
   "domain": "goldenknightsnation.com",
   "publication": "goldenknightsnation",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

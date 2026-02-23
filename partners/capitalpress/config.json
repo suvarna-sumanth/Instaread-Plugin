@@ -2,7 +2,7 @@
   "partner_id": "capitalpress",
   "domain": "capitalpress.com",
   "publication": "capitalpress",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

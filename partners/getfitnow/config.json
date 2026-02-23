@@ -2,7 +2,7 @@
   "partner_id": "getfitnow",
   "domain": "getfitnow.com",
   "publication": "getfitnow",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

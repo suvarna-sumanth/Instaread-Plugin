@@ -2,7 +2,7 @@
   "partner_id": "jcitytimes",
   "domain": "jcitytimes.com",
   "publication": "jcitytimes",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "custom",
   "injection_rules": [],
   "version": "2.2.4"

@@ -2,7 +2,7 @@
     "partner_id": "raleighfoodandwine",
     "domain": "raleighfoodandwine.com",
     "publication": "raleighfoodandwine",
-    "injection_context": "singular",
+    "injection_context": "post",
     "injection_strategy": "first",
     "injection_rules": [
       {

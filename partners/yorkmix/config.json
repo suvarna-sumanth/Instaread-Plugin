@@ -2,7 +2,7 @@
     "partner_id": "yorkmix",
     "domain": "yorkmix.com",
     "publication": "yorkmix",
-    "injection_context": "singular",
+    "injection_context": "post",
     "injection_strategy": "first",
     "injection_rules": [
       {

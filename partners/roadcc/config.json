@@ -2,7 +2,7 @@
     "partner_id": "roadcc",
     "domain": "road.cc",
     "publication": "roadcc",
-    "injection_context": "singular",
+    "injection_context": "post",
     "injection_strategy": "first",
     "injection_rules": [
       {

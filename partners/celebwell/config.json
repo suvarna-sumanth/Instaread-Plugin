@@ -2,7 +2,7 @@
   "partner_id": "celebwell",
   "domain": "celebwell.com",
   "publication": "celebwell",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

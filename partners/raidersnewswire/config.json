@@ -2,7 +2,7 @@
   "partner_id": "raidersnewswire",
   "domain": "raidersnewswire.com",
   "publication": "raidersnewswire",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

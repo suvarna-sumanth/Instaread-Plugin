@@ -2,7 +2,7 @@
   "partner_id": "torquecafe",
   "domain": "torquecafe.com",
   "publication": "torquecafe",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

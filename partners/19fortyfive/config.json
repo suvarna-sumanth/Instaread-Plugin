@@ -2,7 +2,7 @@
   "partner_id": "19fortyfive",
   "domain": "19fortyfive.com",
   "publication": "19fortyfive",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

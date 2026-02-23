@@ -2,7 +2,7 @@
   "partner_id": "bestlifeonline",
   "domain": "bestlifeonline.com",
   "publication": "bestlifeonline",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

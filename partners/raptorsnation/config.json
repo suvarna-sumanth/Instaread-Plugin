@@ -2,7 +2,7 @@
   "partner_id": "raptorsnation",
   "domain": "raptorsnation.com",
   "publication": "raptorsnation",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

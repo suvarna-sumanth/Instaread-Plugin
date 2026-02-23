@@ -2,7 +2,7 @@
   "partner_id": "ramsnewswire",
   "domain": "ramsnewswire.com",
   "publication": "ramsnewswire",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

@@ -2,7 +2,7 @@
   "partner_id": "outdoornews",
   "domain": "outdoornews.com",
   "publication": "outdoornews",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

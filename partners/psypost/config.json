@@ -2,7 +2,7 @@
     "partner_id": "psypost",
     "domain": "psypost.com",
     "publication": "psypost",
-    "injection_context": "singular",
+    "injection_context": "post",
     "injection_strategy": "first",
     "injection_rules": [
       {

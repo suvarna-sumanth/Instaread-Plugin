@@ -2,7 +2,7 @@
     "partner_id": "usacarry",
     "domain": "usacarry.com",
     "publication": "usacarry",
-    "injection_context": "singular",
+    "injection_context": "post",
     "injection_strategy": "first",
     "injection_rules": [
       {

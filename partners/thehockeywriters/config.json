@@ -2,7 +2,7 @@
   "partner_id": "thehockeywriters",
   "domain": "thehockeywriters.com",
   "publication": "thehockeywriters",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {
@@ -69,7 +69,8 @@
         "/Online/default.asp",
         "/news/",
         "/news/stratford-upon-avon-theatre/",
-        "/shows/london-theatre/"
+        "/shows/london-theatre/",
+        "/hockey-headlines/"
       ]
     }
   ],

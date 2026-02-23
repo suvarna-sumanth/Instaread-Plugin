@@ -2,7 +2,7 @@
   "partner_id": "angelsnation",
   "domain": "angelsnation.com",
   "publication": "angelsnation",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

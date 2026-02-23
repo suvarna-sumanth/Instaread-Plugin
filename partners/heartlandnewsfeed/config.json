@@ -2,7 +2,7 @@
     "partner_id": "heartlandnewsfeed",
     "domain": "heartlandnewsfeed.com",
     "publication": "heartlandnewsfeed",
-    "injection_context": "singular",
+    "injection_context": "post",
     "injection_strategy": "first",
     "injection_rules": [
         {

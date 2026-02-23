@@ -251,6 +251,12 @@ class InstareadPlayer {
         if ($ctx === 'singular' && !is_singular()) {
             if ($debug_mode) $this->log('Skipping: not singular');
             return $content;
+        } elseif (($ctx === 'post' || $ctx === 'single') && !is_single()) {
+            if ($debug_mode) $this->log('Skipping: not a single post');
+            return $content;
+        } elseif ($ctx === 'page' && !is_page()) {
+            if ($debug_mode) $this->log('Skipping: not a page');
+            return $content;
         }
 
         $publication = $this->settings['publication'];

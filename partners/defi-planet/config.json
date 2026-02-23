@@ -2,7 +2,7 @@
   "partner_id": "defi-planet",
   "domain": "defi-planet.com",
   "publication": "defi-planet",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

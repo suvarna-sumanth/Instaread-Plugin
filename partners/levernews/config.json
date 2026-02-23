@@ -2,7 +2,7 @@
   "partner_id": "levernews",
   "domain": "levernews.com",
   "publication": "levernews",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

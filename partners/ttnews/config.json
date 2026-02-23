@@ -2,7 +2,7 @@
     "partner_id": "ttnews",
     "domain": "ttnews.com",
     "publication": "ttnews",
-    "injection_context": "singular",
+    "injection_context": "post",
     "injection_strategy": "first",
     "injection_rules": [
       {

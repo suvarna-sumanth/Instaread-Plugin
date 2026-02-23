@@ -2,7 +2,7 @@
   "partner_id": "sammobile",
   "domain": "sammobile.com",
   "publication": "sammobile",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

@@ -2,7 +2,7 @@
   "partner_id": "gardenandgun",
   "domain": "gardenandgun.com",
   "publication": "gardenandgun",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

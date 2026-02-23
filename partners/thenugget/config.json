@@ -3,7 +3,7 @@
   "domain": "thenugget.instaread.co",
   "publication": "thenugget",
   "version": "4.1.0",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

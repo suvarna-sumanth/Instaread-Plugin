@@ -2,7 +2,7 @@
   "partner_id": "dodgersnation",
   "domain": "dodgersnation.com",
   "publication": "dodgersnation",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

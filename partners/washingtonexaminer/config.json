@@ -2,7 +2,7 @@
   "partner_id": "washingtonexaminer",
   "domain": "washingtonexaminer.com",
   "publication": "washingtonexaminer",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "container_height": "144px",
   "injection_rules": [

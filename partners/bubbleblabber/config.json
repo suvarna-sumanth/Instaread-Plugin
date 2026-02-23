@@ -2,7 +2,7 @@
     "partner_id": "bubbleblabber",
     "domain": "bubbleblabber.com",
     "publication": "bubbleblabber",
-    "injection_context": "singular",
+    "injection_context": "post",
     "injection_strategy": "first",
     "injection_rules": [
       {

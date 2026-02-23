@@ -2,7 +2,7 @@
     "partner_id": "scallywagandvagabond",
     "domain": "scallywagandvagabond.com",
     "publication": "scallywagandvagabond",
-    "injection_context": "singular",
+    "injection_context": "post",
     "injection_strategy": "first",
     "injection_rules": [
       {

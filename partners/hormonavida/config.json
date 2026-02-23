@@ -2,7 +2,7 @@
     "partner_id": "hormonavida",
     "domain": "hormonavida.com",
     "publication": "hormonavida",
-    "injection_context": "singular",
+    "injection_context": "post",
     "injection_strategy": "first",
     "injection_rules": [
       {

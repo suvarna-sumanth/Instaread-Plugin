@@ -2,7 +2,7 @@
     "partner_id": "ebiketipsroadcc",
     "domain": "ebiketips.road.cc",
     "publication": "ebiketipsroadcc",
-    "injection_context": "singular",
+    "injection_context": "post",
     "injection_strategy": "first",
     "injection_rules": [
       {

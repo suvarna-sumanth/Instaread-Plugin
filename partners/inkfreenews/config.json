@@ -2,7 +2,7 @@
   "partner_id": "inkfreenews",
   "domain": "inkfreenews.com",
   "publication": "inkfreenews",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {

@@ -2,7 +2,7 @@
     "partner_id": "americanjournaldaily",
     "domain": "americanjournaldaily.com",
     "publication": "americanjournaldaily",
-    "injection_context": "singular",
+    "injection_context": "post",
     "injection_strategy": "first",
     "injection_rules": [
       {

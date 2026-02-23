@@ -2,7 +2,7 @@
   "partner_id": "moonandspoonandyum",
   "domain": "moonandspoonandyum.com",
   "publication": "moonandspoonandyum",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "container_height": "85px",
   "injection_rules": [

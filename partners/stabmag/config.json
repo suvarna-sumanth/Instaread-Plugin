@@ -2,7 +2,7 @@
   "partner_id": "stabmag",
   "domain": "stabmag.com",
   "publication": "stabmag",
-  "injection_context": "singular",
+  "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
     {
