@@ -265,24 +265,34 @@ class InstareadPlayer {
         $slot_css        = $this->partner_config['slot_css'] ?? 'min-height:144px;';
         $playlist_height = $this->partner_config['playlist_height'] ?? '80vh';
 
+        $injected = false;
         foreach ($this->settings['injection_rules'] as $rule) {
             $pos             = $rule['insert_position'] ?? 'append';
             $target_selector = $rule['target_selector'] ?? null;
-            if ($debug_mode) $this->log("Processing rule: pos={$pos}, selector={$target_selector}");
 
             $player_html = $is_playlist
                 ? $this->render_playlist($publication, $playlist_height)
                 : $this->render_single($publication, $player_type, $color, $slot_css);
 
-            // Store original content to check if injection succeeded
-            $original_content = $content;
-            $content = $this->inject_with_safe_string_manipulation($content, $player_html, $target_selector, $pos);
+            // Try specific injection without fallback first
+            $new_content = $this->inject_with_safe_string_manipulation($content, $player_html, $target_selector, $pos, false);
             
-            // If content was modified (injection succeeded), stop processing further rules
-            if ($content !== $original_content) {
-                if ($debug_mode) $this->log("Injection successful with selector: {$target_selector}. Skipping remaining rules.");
+            if ($new_content !== $content) {
+                $content = $new_content;
+                $injected = true;
+                if ($debug_mode) $this->log("Injection successful with selector: {$target_selector}.");
                 break;
             }
+        }
+
+        // If no specific selector matched any rule, apply fallback for the first rule
+        if (!$injected && !empty($this->settings['injection_rules'])) {
+            $first_rule  = $this->settings['injection_rules'][0];
+            $player_html = $is_playlist
+                ? $this->render_playlist($publication, $playlist_height)
+                : $this->render_single($publication, $player_type, $color, $slot_css);
+
+            $content = $this->inject_with_safe_string_manipulation($content, $player_html, $first_rule['target_selector'], $first_rule['insert_position'] ?? 'append', true);
         }
 
         return $content;
@@ -301,7 +311,7 @@ class InstareadPlayer {
         }
     }
 
-    private function inject_with_safe_string_manipulation($content, $player_html, $target_selector, $insert_position) {
+    private function inject_with_safe_string_manipulation($content, $player_html, $target_selector, $insert_position, $allow_fallback = true) {
         $debug_mode = $this->is_debug_enabled();
 
         if (!is_string($content) || !is_string($player_html) || trim($content) === '') {
@@ -318,11 +328,31 @@ class InstareadPlayer {
         $target_info = $this->find_target_element($content, $target_selector);
 
         if (!$target_info) {
-            if ($debug_mode) $this->log("Target selector '{$target_selector}' not found, using safe fallback.");
-            if (in_array($insert_position, ['inside_first_child', 'prepend', 'before_element'], true)) {
-                return $player_html . $content;
+            if (!$allow_fallback) {
+                return $content;
             }
-            return $content . $player_html;
+
+            $mover = '';
+            if (!empty($target_selector)) {
+                if ($debug_mode) $this->log("Target selector '{$target_selector}' not found in content. Adding JS mover.");
+                // Teleport the player to the correct DOM element (even outside the post body)
+                $mover = sprintf(
+                    '<script>(function(){var t=document.querySelector("%s"),s=document.currentScript.previousElementSibling;if(t&&s){' .
+                    'if("%s"==="before_element")t.parentNode.insertBefore(s,t);' .
+                    'else if("%s"==="after_element")t.parentNode.insertBefore(s,t.nextSibling);' .
+                    'else if("%s"==="prepend"||"%s"==="inside_first_child")t.insertBefore(s,t.firstChild);' .
+                    'else t.appendChild(s);' .
+                    '}})();</script>',
+                    esc_js($target_selector),
+                    esc_js($insert_position), esc_js($insert_position), 
+                    esc_js($insert_position), esc_js($insert_position)
+                );
+            }
+            
+            if (in_array($insert_position, ['inside_first_child', 'prepend', 'before_element'], true)) {
+                return $player_html . $mover . $content;
+            }
+            return $content . $player_html . $mover;
         }
 
         if (!isset($target_info['open_pos']) || $target_info['open_pos'] < 0 || $target_info['open_pos'] >= strlen($content)) {
