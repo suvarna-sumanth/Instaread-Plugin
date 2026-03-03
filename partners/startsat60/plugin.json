@@ -1,10 +1,10 @@
 {
     "name": "Instaread Audio Player - startsat60",
-    "version": "4.2.6",
-    "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/startsat60-v4.2.6/startsat60-v4.2.6.zip",
+    "version": "4.2.8",
+    "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/startsat60-v4.2.8/startsat60-v4.2.8.zip",
     "requires": "5.6",
     "tested": "6.5",
     "sections": {
-        "changelog": "<h4>4.2.6</h4><ul><li>Partner-specific build for startsat60</li></ul>"
+        "changelog": "<h4>4.2.8</h4><ul><li>Partner-specific build for startsat60</li></ul>"
     }
 }

@@ -6,8 +6,8 @@
     "injection_strategy": "first",
     "injection_rules": [
         {
-            "target_selector": "",
-            "insert_position": "prepend",
+            "target_selector": ".Typography",
+            "insert_position": "before_element",
             "exclude_slugs": [
                 "/",
                 "/category/rumors/",
@@ -74,5 +74,5 @@
             ]
         }
     ],
-    "version": "4.2.6"
+    "version": "4.2.8"
 }
