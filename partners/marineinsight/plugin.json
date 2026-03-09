@@ -1,0 +1,10 @@
+{
+  "name": "Instaread Audio Player - marineinsight",
+  "version": "4.2.6",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/marineinsight-v4.2.6/marineinsight-v4.2.6.zip",
+  "requires": "5.6",
+  "tested": "6.5",
+  "sections": {
+    "changelog": "<h4>4.2.6</h4><ul><li>Partner-specific build for marineinsight</li></ul>"
+  }
+}
