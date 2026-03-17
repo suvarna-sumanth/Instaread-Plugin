@@ -23,7 +23,7 @@ use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
 class InstareadPlayer {
     private static $instance;
-    private static $debug = true; // set false in production if you want
+    private static $debug = false; // set false in production if you want
 
     private $settings;
     private $partner_config;
