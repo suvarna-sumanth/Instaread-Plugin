@@ -1,0 +1,10 @@
+{
+  "name": "Instaread Audio Player - news.jamaica-homes",
+  "version": "4.2.6",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/news.jamaica-homes-v4.2.6/news.jamaica-homes-v4.2.6.zip",
+  "requires": "5.6",
+  "tested": "6.5",
+  "sections": {
+    "changelog": "<h4>4.2.6</h4><ul><li>Partner-specific build for news.jamaica-homes</li></ul>"
+  }
+}
