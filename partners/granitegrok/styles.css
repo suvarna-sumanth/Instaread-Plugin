@@ -11,14 +11,14 @@
      }
  }
 
- @media only screen and (min-width: 769px) and (max-width: 1036px) {
+ @media only screen and (min-width: 769px) and (max-width: 1000px) {
      .instaread-player-slot {
          height: 236px !important;
      }
  }
 
 
- @media only screen and (min-width: 1037px) {
+ @media only screen and (min-width: 1001px) {
      .instaread-player-slot {
          height: 160px !important;
      }
