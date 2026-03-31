@@ -380,6 +380,36 @@ class InstareadPlayer {
 
         $selector = trim($selector);
 
+        // Descendant combinator: #parent .descendant (space-separated, no >)
+        if (preg_match('/^([^\s>]+)\s+([.#]?[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)?)$/', $selector, $desc_matches)
+            && strpos($selector, '>') === false) {
+            $parent_selector = trim($desc_matches[1]);
+            $descendant_selector = trim($desc_matches[2]);
+
+            $parent_info = $this->find_target_element($content, $parent_selector);
+            if (!$parent_info) return false;
+
+            $parent_after_open = $parent_info['after_open'];
+            $parent_close_pos  = $parent_info['close_pos'] ?? strlen($content);
+            $parent_content    = substr($content, $parent_after_open, $parent_close_pos - $parent_after_open);
+
+            // Find the descendant element within the parent content
+            $descendant_info = $this->find_target_element($parent_content, $descendant_selector);
+            if (!$descendant_info) return false;
+
+            // Adjust positions to be relative to the full content string
+            return [
+                'tag_name'     => $descendant_info['tag_name'],
+                'open_pos'     => $parent_after_open + $descendant_info['open_pos'],
+                'open_tag'     => $descendant_info['open_tag'],
+                'open_tag_len' => $descendant_info['open_tag_len'],
+                'close_pos'    => $descendant_info['close_pos'] !== null
+                    ? $parent_after_open + $descendant_info['close_pos']
+                    : null,
+                'after_open'   => $parent_after_open + $descendant_info['after_open'],
+            ];
+        }
+
         // Child combinator: .parent > childTag
         if (preg_match('/^([^\s>]+)\s*>\s*([a-zA-Z0-9_-]+)(:.*)?$/', $selector, $child_matches)) {
             $parent_selector = trim($child_matches[1]);
