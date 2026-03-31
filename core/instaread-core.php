@@ -54,8 +54,8 @@ class InstareadPlayer {
         add_action('admin_menu',       [$this, 'add_settings_page']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
 
-        // Single the_content hook so injection only runs once per render
-        add_filter('the_content',      [$this, 'inject_server_side_player'], 99, 1);
+        // Single the_content hook — run very late so other plugins (Social Warfare, etc.) have already modified the content
+        add_filter('the_content',      [$this, 'inject_server_side_player'], PHP_INT_MAX - 1, 1);
 
         // Footer fallback only logs; does not inject to avoid duplicates
         add_action('wp_footer',        [$this, 'maybe_inject_via_footer'], 999);
