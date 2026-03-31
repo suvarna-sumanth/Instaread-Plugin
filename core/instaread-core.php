@@ -380,11 +380,12 @@ class InstareadPlayer {
 
         $selector = trim($selector);
 
-        // Descendant combinator: #parent .descendant (space-separated, no >)
-        if (preg_match('/^([^\s>]+)\s+([.#]?[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)?)$/', $selector, $desc_matches)
-            && strpos($selector, '>') === false) {
+        // Descendant combinator: #parent .descendant (space-separated)
+        // Split on the first whitespace that is NOT around a > combinator
+        if (preg_match('/^([^\s>]+)\s+(.+)$/', $selector, $desc_matches)
+            && !preg_match('/^[^\s>]+\s*>\s*[^\s>]+$/', $selector)) {
             $parent_selector = trim($desc_matches[1]);
-            $descendant_selector = trim($desc_matches[2]);
+            $rest_selector   = trim($desc_matches[2]);
 
             $parent_info = $this->find_target_element($content, $parent_selector);
             if (!$parent_info) return false;
@@ -393,8 +394,8 @@ class InstareadPlayer {
             $parent_close_pos  = $parent_info['close_pos'] ?? strlen($content);
             $parent_content    = substr($content, $parent_after_open, $parent_close_pos - $parent_after_open);
 
-            // Find the descendant element within the parent content
-            $descendant_info = $this->find_target_element($parent_content, $descendant_selector);
+            // Recursively find the rest of the selector within the parent content
+            $descendant_info = $this->find_target_element($parent_content, $rest_selector);
             if (!$descendant_info) return false;
 
             // Adjust positions to be relative to the full content string
