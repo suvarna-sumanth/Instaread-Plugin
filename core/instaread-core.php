@@ -3,7 +3,7 @@
  * Plugin Name: Instaread Audio Player
  * Plugin URI: https://instaread.co
  * Description: Instaread auto-injecting player with partner configuration and full server-side rendering (no DOMDocument parsing, safer string injection)
- * Version: 4.2.0
+ * Version: 4.3.0
  * Author: Instaread Team
  */
 
@@ -173,6 +173,18 @@ class InstareadPlayer {
             wp_enqueue_style($local_css_handle);
             wp_add_inline_style($local_css_handle, $partner_css);
             $this->log('Enqueued local styles.css');
+        }
+
+        $partner_js_file = __DIR__ . '/partner.js';
+        if (file_exists($partner_js_file)) {
+            wp_enqueue_script(
+                'instaread-partner-js',
+                plugin_dir_url(__FILE__) . 'partner.js',
+                [],
+                filemtime($partner_js_file),
+                true
+            );
+            $this->log('Enqueued partner.js');
         }
     }
 
