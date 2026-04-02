@@ -174,6 +174,18 @@ class InstareadPlayer {
             wp_add_inline_style($local_css_handle, $partner_css);
             $this->log('Enqueued local styles.css');
         }
+
+        $partner_js_file = __DIR__ . '/partner.js';
+        if (file_exists($partner_js_file)) {
+            wp_enqueue_script(
+                'instaread-partner-js',
+                plugin_dir_url(__FILE__) . 'partner.js',
+                [],
+                filemtime($partner_js_file),
+                true
+            );
+            $this->log('Enqueued partner.js');
+        }
     }
 
     public function inject_server_side_player($content) {
