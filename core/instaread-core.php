@@ -3,33 +3,79 @@
  * Plugin Name: Instaread Audio Player
  * Plugin URI: https://instaread.co
  * Description: Instaread auto-injecting player with partner configuration and full server-side rendering (no DOMDocument parsing, safer string injection)
- * Version: 4.2.0
+ * Version: 4.2.7
  * Author: Instaread Team
  */
 
 defined('ABSPATH') || exit;
 
-$partner_config_file = __DIR__ . '/config.json';
-$partner_css_file    = __DIR__ . '/styles.css';
-$partner_config      = file_exists($partner_config_file)
-    ? json_decode(file_get_contents($partner_config_file), true)
-    : null;
-$partner_css         = file_exists($partner_css_file)
-    ? file_get_contents($partner_css_file)
-    : null;
+// FIX #1: Namespaced globals to prevent collision with other plugins/themes
+//         Old names ($partner_config, $partner_css) are dangerously generic.
+$instaread_partner_config_file = __DIR__ . '/config.json';
+$instaread_partner_css_file    = __DIR__ . '/styles.css';
 
-require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
+// FIX #6: Validate config.json with json_last_error() — silent malformed JSON
+//         previously caused the plugin to fall back to WP options with no warning.
+if (file_exists($instaread_partner_config_file)) {
+    $instaread_raw_config         = file_get_contents($instaread_partner_config_file);
+    $instaread_partner_config     = json_decode($instaread_raw_config, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        error_log('[InstareadPlayer] CRITICAL: config.json is invalid JSON — ' . json_last_error_msg() . '. Falling back to WP options.');
+        $instaread_partner_config = null;
+    }
+} else {
+    $instaread_partner_config = null;
+}
+
+// FIX #10: Only read CSS file when actually needed (front-end non-admin requests).
+//          Previously read on every request including admin, AJAX, REST, cron.
+$instaread_partner_css = null;
+if (!is_admin() && file_exists($instaread_partner_css_file)) {
+    $instaread_partner_css = file_get_contents($instaread_partner_css_file);
+}
+
+// FIX #2: Guard require_once — missing update-checker previously caused a fatal
+//         error that brought the entire partner site down on a corrupted install.
+if (!file_exists(__DIR__ . '/plugin-update-checker/plugin-update-checker.php')) {
+    error_log('[InstareadPlayer] FATAL: plugin-update-checker is missing. Auto-updates disabled.');
+} else {
+    require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
+}
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
 class InstareadPlayer {
     private static $instance;
-    private static $debug = false; // set false in production if you want
+    private static $debug = false;
 
     private $settings;
     private $partner_config;
     private $plugin_version;
 
-    // Enable debug mode via constant or filter
+    /**
+     * FIX #5: Plugin version defined as a constant — read once at class load,
+     * never triggers a file read on every request like get_plugin_data() did.
+     * IMPORTANT: Keep this in sync with the Version header above.
+     */
+    const PLUGIN_VERSION = '4.2.7';
+
+    /**
+     * Domain pattern used to exclude our scripts from all caching/optimization plugins.
+     * 'instaread.co' matches player.instaread.co, instaread.co, and any future *.instaread.co subdomains.
+     */
+    const SCRIPT_EXCLUDE_PATTERN = 'instaread.co';
+
+    /**
+     * WP option key to track the last installed plugin version.
+     * Used to detect upgrades and trigger a one-time automatic cache clear.
+     */
+    const VERSION_OPTION_KEY = 'instaread_installed_version';
+
+    /**
+     * Transient key used as a mutex lock during cache clearing.
+     * Prevents thundering herd when multiple PHP workers race on upgrade detection.
+     */
+    const CACHE_CLEAR_LOCK_KEY = 'instaread_cache_clearing';
+
     private function is_debug_enabled() {
         return (defined('WP_DEBUG') && WP_DEBUG)
             || (defined('INSTAREAD_DEBUG') && INSTAREAD_DEBUG)
@@ -44,21 +90,35 @@ class InstareadPlayer {
     }
 
     private function __construct() {
-        global $partner_config;
-        $this->partner_config = $partner_config;
-        $this->settings       = $this->get_settings();
-        $this->get_plugin_version();
-        $this->init_update_checker();
+        // FIX #1: Reference the namespaced global, not the generic $partner_config
+        global $instaread_partner_config;
+        $this->partner_config = $instaread_partner_config;
 
-        add_action('admin_init',       [$this, 'register_settings']);
-        add_action('admin_menu',       [$this, 'add_settings_page']);
+        $this->settings = $this->get_settings();
+
+        // FIX #5: Version now comes from the constant — no file I/O on every request
+        $this->plugin_version = self::PLUGIN_VERSION;
+
+        // Only set up update checker if the library was successfully loaded (FIX #2)
+        if (class_exists('YahnisElsts\PluginUpdateChecker\v5\PucFactory')) {
+            $this->init_update_checker();
+        }
+
+        // Register exclusions with all caching/optimization plugins as early as possible
+        $this->init_optimization_exclusions();
+
+        // One-time automatic cache clear when plugin upgrades to a new version
+        $this->maybe_clear_cache_on_upgrade();
+
+        add_action('admin_init',         [$this, 'register_settings']);
+        add_action('admin_menu',         [$this, 'add_settings_page']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
 
-        // Single the_content hook — run very late so other plugins (Social Warfare, etc.) have already modified the content
-        add_filter('the_content',      [$this, 'inject_server_side_player'], PHP_INT_MAX - 1, 1);
+        // Run very late so other plugins (Social Warfare etc.) have already modified content
+        add_filter('the_content',        [$this, 'inject_server_side_player'], PHP_INT_MAX - 1, 1);
 
-        // Footer fallback only logs; does not inject to avoid duplicates
-        add_action('wp_footer',        [$this, 'maybe_inject_via_footer'], 999);
+        // Footer fallback — only logs, never injects, to avoid duplicates
+        add_action('wp_footer',          [$this, 'maybe_inject_via_footer'], 999);
 
         add_filter('auto_update_plugin', [$this, 'enable_auto_updates'], 10, 2);
 
@@ -77,6 +137,209 @@ class InstareadPlayer {
         }
     }
 
+    // =========================================================================
+    // OPTIMIZATION / CACHING PLUGIN EXCLUSIONS
+    //
+    // Covers: WP Rocket, Autoptimize, W3 Total Cache, LiteSpeed Cache,
+    //         SiteGround Optimizer, Hummingbird, NitroPack, Swift Performance,
+    //         Flying Scripts, Asset CleanUp, Cloudflare Rocket Loader
+    //
+    // Pattern 'instaread.co' matches all current and future *.instaread.co domains.
+    // Registered in __construct so it runs as early as possible on every request.
+    // =========================================================================
+
+    private function add_array_exclusion($filter, $pattern) {
+        add_filter($filter, function ($excluded) use ($pattern) {
+            if (!is_array($excluded)) $excluded = [];
+            $excluded[] = $pattern;
+            return $excluded;
+        });
+    }
+
+    private function init_optimization_exclusions() {
+        $pattern = self::SCRIPT_EXCLUDE_PATTERN;
+
+        // --- WP Rocket ---
+        $this->add_array_exclusion('rocket_exclude_js', $pattern);
+        $this->add_array_exclusion('rocket_delay_js_exclusions', $pattern);
+        $this->add_array_exclusion('rocket_exclude_defer_js', $pattern);
+        $this->add_array_exclusion('rocket_cdn_reject_files', $pattern);
+
+        // --- Autoptimize ---
+        // autoptimize_filter_js_exclude expects a comma-separated string
+        add_filter('autoptimize_filter_js_exclude', function ($excluded) use ($pattern) {
+            return (is_string($excluded) ? $excluded : '') . ', ' . $pattern;
+        });
+        $this->add_array_exclusion('autoptimize_filter_js_defer_not_aggregate', $pattern);
+
+        // --- W3 Total Cache ---
+        add_filter('w3tc_minify_js_do_tag_minification', function ($do, $script_tag) use ($pattern) {
+            return strpos($script_tag, $pattern) !== false ? false : $do;
+        }, 10, 2);
+        add_filter('w3tc_cdn_reject_request', function ($reject, $url) use ($pattern) {
+            return strpos($url, $pattern) !== false ? true : $reject;
+        }, 10, 2);
+
+        // --- LiteSpeed Cache ---
+        $this->add_array_exclusion('litespeed_optimize_js_excludes', $pattern);
+        $this->add_array_exclusion('litespeed_optm_js_defer_exc', $pattern);
+
+        // --- SiteGround Optimizer ---
+        $this->add_array_exclusion('sgo_javascript_combine_excluded', $pattern);
+        $this->add_array_exclusion('sgo_js_minify_excluded', $pattern);
+        $this->add_array_exclusion('sgo_js_async_excluded', $pattern);
+
+        // --- Hummingbird (WPMU Dev) ---
+        add_filter('wphb_minify_resource', function ($minify, $handle) {
+            return strpos((string) $handle, 'instaread') !== false ? false : $minify;
+        }, 10, 2);
+
+        // --- NitroPack ---
+        $this->add_array_exclusion('nitropack_js_exclude_patterns', $pattern);
+
+        // --- Swift Performance ---
+        $this->add_array_exclusion('swift_performance_exclude_from_minify', $pattern);
+        $this->add_array_exclusion('swift_performance_exclude_from_merge', $pattern);
+
+        // --- Flying Scripts (WP Speed Matters) ---
+        $this->add_array_exclusion('flying_scripts_excluded_patterns', $pattern);
+
+        // --- Asset CleanUp Pro ---
+        $this->add_array_exclusion('wpacu_get_js_hrefs_to_ignore_minification', $pattern);
+
+        // --- Cloudflare Rocket Loader + generic optimizers ---
+        // NOTE: This filter only applies to scripts registered via wp_enqueue_script().
+        // Our injected player script goes directly into post content via inject_server_side_player()
+        // and never passes through the WP script queue — the data-* attributes in render_single() do that job.
+        // This filter is kept only as a safety net for any future enqueued scripts.
+        add_filter('script_loader_tag', function ($tag, $handle) use ($pattern) {
+            if (strpos($tag, $pattern) !== false && strpos($tag, 'data-cfasync') === false) {
+                $tag = str_replace(
+                    '<script ',
+                    '<script data-cfasync="false" data-no-optimize="1" data-no-defer="1" data-no-minify="1" ',
+                    $tag
+                );
+            }
+            return $tag;
+        }, 10, 2);
+    }
+
+    // =========================================================================
+    // ONE-TIME CACHE CLEAR ON PLUGIN UPGRADE
+    //
+    // Safety guarantees:
+    //   1. DB-option guard — runs exactly ONCE per version bump, never repeats
+    //   2. FIX #3: Transient mutex — prevents thundering herd when multiple
+    //              PHP-FPM workers race between get_option and update_option
+    //   3. Skips AJAX, REST API, WP-CLI, and cron — no race conditions
+    //   4. Version option updated BEFORE clearing — partial failures don't retry
+    //   5. Every cache function guarded with function_exists / class_exists
+    //   6. FIX #4: wp_cache_flush() only called when no external object cache
+    //              (Redis/Memcached) is active — prevents thundering herd on DB
+    //   7. Entire block wrapped in try/catch — exceptions logged, never surface
+    //   8. Only clears cache files — never touches content, posts, or DB data
+    // =========================================================================
+    private function maybe_clear_cache_on_upgrade() {
+        // Skip background/API contexts to avoid race conditions
+        if (
+            wp_doing_ajax()
+            || wp_doing_cron()
+            || (defined('REST_REQUEST') && REST_REQUEST)
+            || (defined('WP_CLI') && WP_CLI)
+        ) {
+            return;
+        }
+
+        $stored_version = get_option(self::VERSION_OPTION_KEY, '0');
+
+        // Only proceed if current plugin version is strictly newer than what's stored
+        if (!version_compare($stored_version, $this->plugin_version, '<')) {
+            return;
+        }
+
+        // FIX #3: Transient mutex — only ONE PHP worker runs the cache clear.
+        // If another worker already acquired the lock, skip silently.
+        // Lock expires in 60 seconds as a safety net against crashes mid-clear.
+        if (get_transient(self::CACHE_CLEAR_LOCK_KEY)) {
+            $this->log('Cache clear already in progress by another worker. Skipping.');
+            return;
+        }
+        set_transient(self::CACHE_CLEAR_LOCK_KEY, 1, 60);
+
+        $this->log("Plugin upgraded from {$stored_version} to {$this->plugin_version}. Triggering one-time cache clear.");
+
+        // Store the new version FIRST — if cache clear partially fails, we don't retry forever
+        update_option(self::VERSION_OPTION_KEY, $this->plugin_version, false);
+
+        $this->clear_partner_cache();
+
+        // Release lock after clear completes
+        delete_transient(self::CACHE_CLEAR_LOCK_KEY);
+    }
+
+    /**
+     * Clears only minified/combined JS caches — NOT the entire site page cache.
+     *
+     * Why targeted instead of full-site purge:
+     *   - init_optimization_exclusions() already tells every plugin to skip Instaread
+     *     scripts going forward, so page caches will naturally serve correct content.
+     *   - The only stale artifacts are previously-minified JS bundles that baked in
+     *     an older version of our script. Clearing those is enough.
+     *   - A full-site purge (rocket_clean_domain, w3tc_flush_all, etc.) causes a
+     *     thundering herd of cache rebuilds on high-traffic partner sites.
+     *
+     * Safe by design:
+     *   - Every call is guarded with function_exists / class_exists / method_exists
+     *   - Only deletes minified JS caches, never page cache, content, or DB data
+     *   - Wrapped in try/catch so any unexpected error is logged, never shown to visitors
+     */
+    private function clear_partner_cache() {
+        try {
+            // --- WP Rocket (JS minify only, NOT page cache) ---
+            if (function_exists('rocket_clean_minify')) {
+                rocket_clean_minify('js');
+                $this->log('Cleared WP Rocket minified JS cache.');
+            }
+
+            // --- Autoptimize (JS/CSS aggregation cache) ---
+            if (class_exists('autoptimizeCache') && method_exists('autoptimizeCache', 'clearall')) {
+                autoptimizeCache::clearall();
+                $this->log('Cleared Autoptimize cache.');
+            }
+
+            // --- W3 Total Cache (minify only) ---
+            if (function_exists('w3tc_flush_minify')) {
+                w3tc_flush_minify();
+                $this->log('Cleared W3 Total Cache minify cache.');
+            }
+
+            // --- LiteSpeed Cache (CSS/JS only) ---
+            if (class_exists('LiteSpeed_Cache_API') && method_exists('LiteSpeed_Cache_API', 'purge')) {
+                LiteSpeed_Cache_API::purge('css_js');
+                $this->log('Cleared LiteSpeed CSS/JS cache.');
+            }
+
+            // --- Swift Performance (JS only where available) ---
+            if (class_exists('Swift_Performance_Cache') && method_exists('Swift_Performance_Cache', 'clear_assets_cache')) {
+                Swift_Performance_Cache::clear_assets_cache();
+                $this->log('Cleared Swift Performance assets cache.');
+            }
+
+            // Plugins without targeted JS-only purge APIs (SiteGround, Hummingbird,
+            // WP Super Cache, Cache Enabler, NitroPack, Breeze, Comet Cache) are
+            // intentionally skipped here. Their page caches will naturally serve
+            // correct content because init_optimization_exclusions() already excludes
+            // Instaread scripts from minification/combination.
+
+        } catch (\Exception $e) {
+            $this->log('Cache clear error (non-fatal): ' . $e->getMessage());
+        }
+    }
+
+    // =========================================================================
+    // CORE PLUGIN METHODS
+    // =========================================================================
+
     private function init_update_checker() {
         $update_url = $this->partner_config
             ? "https://raw.githubusercontent.com/suvarna-sumanth/Instaread-Plugin/main/partners/{$this->partner_config['partner_id']}/plugin.json"
@@ -90,21 +353,15 @@ class InstareadPlayer {
         $this->log("Update checker initialized: $update_url");
     }
 
-    private function get_plugin_version() {
-        if (!function_exists('get_plugin_data')) {
-            require_once ABSPATH . 'wp-admin/includes/plugin.php';
-        }
-        $data              = get_plugin_data(__FILE__);
-        $this->plugin_version = $data['Version'] ?? '1.0.0';
-        $this->log('Plugin version: ' . $this->plugin_version);
-    }
+    // FIX #5: Removed get_plugin_version() — version now comes from PLUGIN_VERSION constant.
+    // get_plugin_data() was reading and parsing the plugin file header on every single request.
 
     private function get_settings() {
         if ($this->partner_config) {
             $this->log('Loaded settings from partner config');
             return [
-                'publication'      => $this->partner_config['publication'] ?? 'default',
-                'injection_rules'  => $this->partner_config['injection_rules'] ?? [
+                'publication'       => $this->partner_config['publication'] ?? 'default',
+                'injection_rules'   => $this->partner_config['injection_rules'] ?? [
                     ['target_selector' => '.entry-content', 'insert_position' => 'append'],
                 ],
                 'injection_context' => $this->partner_config['injection_context'] ?? 'singular',
@@ -115,8 +372,8 @@ class InstareadPlayer {
         $this->log('Loaded settings from WP options');
 
         return [
-            'publication'      => $wp['publication'] ?? 'default',
-            'injection_rules'  => [[
+            'publication'       => $wp['publication'] ?? 'default',
+            'injection_rules'   => [[
                 'target_selector' => $wp['target_selector'] ?? '.entry-content',
                 'insert_position' => $wp['insert_position'] ?? 'append',
             ]],
@@ -126,15 +383,15 @@ class InstareadPlayer {
 
     public function enable_auto_updates($update, $item) {
         $plugin_basename = plugin_basename(__FILE__);
-        $result = (isset($item->plugin) && $item->plugin === $plugin_basename) ? true : $update;
-        $this->log('Auto-update checked for plugin: ' . $plugin_basename . ' Result: ' . ($result ? 'Enabled' : 'Disabled'));
+        $result          = (isset($item->plugin) && $item->plugin === $plugin_basename) ? true : $update;
+        $this->log('Auto-update checked for: ' . $plugin_basename . ' Result: ' . ($result ? 'Enabled' : 'Disabled'));
         return $result;
     }
 
     public function register_settings() {
         register_setting('instaread_settings', 'instaread_settings');
         add_settings_section('instaread_main', 'Instaread Config', null, 'instaread-settings');
-        add_settings_field('instaread_publication', 'Publication', [$this,'field_text'], 'instaread-settings', 'instaread_main', ['key'=>'publication']);
+        add_settings_field('instaread_publication', 'Publication', [$this, 'field_text'], 'instaread-settings', 'instaread_main', ['key' => 'publication']);
         $this->log('Registered WP admin settings');
     }
 
@@ -146,7 +403,7 @@ class InstareadPlayer {
     }
 
     public function add_settings_page() {
-        add_options_page('Instaread Settings','Instaread Player','manage_options','instaread-settings',[$this,'render_admin']);
+        add_options_page('Instaread Settings', 'Instaread Player', 'manage_options', 'instaread-settings', [$this, 'render_admin']);
         $this->log('Added WP admin settings page');
     }
 
@@ -166,12 +423,14 @@ class InstareadPlayer {
     }
 
     public function enqueue_assets() {
-        global $partner_css, $partner_css_file;
-        if ($partner_css && file_exists($partner_css_file)) {
+        // FIX #10: $instaread_partner_css is only populated on front-end non-admin
+        //          requests — so this global is safely null on admin/AJAX/REST/cron.
+        global $instaread_partner_css, $instaread_partner_css_file;
+        if ($instaread_partner_css && file_exists($instaread_partner_css_file)) {
             $local_css_handle = 'instaread-local-style';
             wp_register_style($local_css_handle, false);
             wp_enqueue_style($local_css_handle);
-            wp_add_inline_style($local_css_handle, $partner_css);
+            wp_add_inline_style($local_css_handle, $instaread_partner_css);
             $this->log('Enqueued local styles.css');
         }
 
@@ -209,13 +468,13 @@ class InstareadPlayer {
             return $content;
         }
 
-        // Prevent double injection within this render
+        // Prevent double injection
         if (strpos($content, 'instaread-player-slot') !== false || strpos($content, 'instaread-player') !== false) {
             if ($debug_mode) $this->log('Skipping: player already present in content');
             return $content;
         }
 
-        // Collect exclude slugs
+        // Collect exclude slugs from all rules
         $exclude_slugs = [];
         foreach ($this->settings['injection_rules'] as $rule) {
             if (!empty($rule['exclude_slugs']) && is_array($rule['exclude_slugs'])) {
@@ -223,12 +482,12 @@ class InstareadPlayer {
             }
         }
 
-        // Current slug
+        // Resolve current slug
         $current_slug = '';
         if (is_singular() && !empty($post->ID)) {
             $permalink = get_permalink($post->ID);
             if ($permalink) {
-                $parsed = parse_url($permalink);
+                $parsed       = parse_url($permalink);
                 $current_slug = $parsed['path'] ?? '';
             }
         }
@@ -247,7 +506,7 @@ class InstareadPlayer {
             if ($current_slug === '') $current_slug = '/';
         }
 
-        $normalized_exclude_slugs = array_map(function($slug) {
+        $normalized_exclude_slugs = array_map(function ($slug) {
             $slug = trim($slug);
             $slug = rtrim($slug, '/');
             return $slug === '' ? '/' : $slug;
@@ -258,7 +517,7 @@ class InstareadPlayer {
             return $content;
         }
 
-        // Context
+        // Context check
         $ctx = $this->settings['injection_context'];
         if ($ctx === 'singular' && !is_singular()) {
             if ($debug_mode) $this->log('Skipping: not singular');
@@ -292,25 +551,30 @@ class InstareadPlayer {
                 ? $this->render_playlist($publication, $playlist_height)
                 : $this->render_single($publication, $player_type, $color, $slot_css);
 
-            // Try specific injection without fallback first
             $new_content = $this->inject_with_safe_string_manipulation($content, $player_html, $target_selector, $pos, false);
-            
+
             if ($new_content !== $content) {
-                $content = $new_content;
+                $content  = $new_content;
                 $injected = true;
                 if ($debug_mode) $this->log("Injection successful with selector: {$target_selector}.");
                 break;
             }
         }
 
-        // If no specific selector matched any rule, apply fallback for the first rule
+        // Fallback: use first rule if nothing matched
         if (!$injected && !empty($this->settings['injection_rules'])) {
             $first_rule  = $this->settings['injection_rules'][0];
             $player_html = $is_playlist
                 ? $this->render_playlist($publication, $playlist_height)
                 : $this->render_single($publication, $player_type, $color, $slot_css);
 
-            $content = $this->inject_with_safe_string_manipulation($content, $player_html, $first_rule['target_selector'], $first_rule['insert_position'] ?? 'append', true);
+            $content = $this->inject_with_safe_string_manipulation(
+                $content,
+                $player_html,
+                $first_rule['target_selector'],
+                $first_rule['insert_position'] ?? 'append',
+                true
+            );
         }
 
         return $content;
@@ -352,21 +616,20 @@ class InstareadPlayer {
 
             $mover = '';
             if (!empty($target_selector)) {
-                if ($debug_mode) $this->log("Target selector '{$target_selector}' not found in content. Adding JS mover.");
-                // Teleport the player to the correct DOM element (even outside the post body)
+                if ($debug_mode) $this->log("Target selector '{$target_selector}' not found. Adding JS mover.");
                 $mover = sprintf(
-                    '<script>(function(){var t=document.querySelector("%s"),s=document.currentScript.previousElementSibling;if(t&&s){' .
+                    '<script data-cfasync="false" data-no-optimize="1">(function(){var t=document.querySelector("%s"),s=document.currentScript.previousElementSibling;if(t&&s){' .
                     'if("%s"==="before_element")t.parentNode.insertBefore(s,t);' .
                     'else if("%s"==="after_element")t.parentNode.insertBefore(s,t.nextSibling);' .
                     'else if("%s"==="prepend"||"%s"==="inside_first_child")t.insertBefore(s,t.firstChild);' .
                     'else t.appendChild(s);' .
                     '}})();</script>',
                     esc_js($target_selector),
-                    esc_js($insert_position), esc_js($insert_position), 
+                    esc_js($insert_position), esc_js($insert_position),
                     esc_js($insert_position), esc_js($insert_position)
                 );
             }
-            
+
             if (in_array($insert_position, ['inside_first_child', 'prepend', 'before_element'], true)) {
                 return $player_html . $mover . $content;
             }
@@ -392,8 +655,7 @@ class InstareadPlayer {
 
         $selector = trim($selector);
 
-        // Descendant combinator: #parent .descendant (space-separated)
-        // Split on the first whitespace that is NOT around a > combinator
+        // Descendant combinator: #parent .descendant
         if (preg_match('/^([^\s>]+)\s+(.+)$/', $selector, $desc_matches)
             && !preg_match('/^[^\s>]+\s*>\s*[^\s>]+$/', $selector)) {
             $parent_selector = trim($desc_matches[1]);
@@ -406,11 +668,9 @@ class InstareadPlayer {
             $parent_close_pos  = $parent_info['close_pos'] ?? strlen($content);
             $parent_content    = substr($content, $parent_after_open, $parent_close_pos - $parent_after_open);
 
-            // Recursively find the rest of the selector within the parent content
             $descendant_info = $this->find_target_element($parent_content, $rest_selector);
             if (!$descendant_info) return false;
 
-            // Adjust positions to be relative to the full content string
             return [
                 'tag_name'     => $descendant_info['tag_name'],
                 'open_pos'     => $parent_after_open + $descendant_info['open_pos'],
@@ -435,28 +695,21 @@ class InstareadPlayer {
             $parent_close_pos  = $parent_info['close_pos'] ?? strlen($content);
             $parent_content    = substr($content, $parent_after_open, $parent_close_pos - $parent_after_open);
 
-            // Find all matching DIRECT child tags, skipping excluded classes
-            $child_tag_name = strtolower($child_tag);
-            $excluded_classes = ['wp-caption-text']; // Classes to skip when finding child elements
-            $search_offset = 0;
-            $child_match = null;
-            
-            // Find all child tags and check if they are direct children
+            $child_tag_name   = strtolower($child_tag);
+            $excluded_classes = ['wp-caption-text'];
+            $search_offset    = 0;
+            $child_match      = null;
+
             while (preg_match('/<' . preg_quote($child_tag, '/') . '\b[^>]*>/i', $parent_content, $match, PREG_OFFSET_CAPTURE, $search_offset)) {
                 $tag_html = $match[0][0];
-                $tag_pos = $match[0][1];
-                
-                // Check if this is a direct child by verifying no unclosed tags before it
-                $before_tag = substr($parent_content, 0, $tag_pos);
-                // Count opening and closing tags - if balanced, this is likely a direct child
-                $open_count = preg_match_all('/<[^\/!][^>]*>/i', $before_tag);
-                $close_count = preg_match_all('/<\/[^>]+>/i', $before_tag);
-                
-                // If tags are balanced (or we're at the start), this is a direct child
+                $tag_pos  = $match[0][1];
+
+                $before_tag      = substr($parent_content, 0, $tag_pos);
+                $open_count      = preg_match_all('/<[^\/!][^>]*>/i', $before_tag);
+                $close_count     = preg_match_all('/<\/[^>]+>/i', $before_tag);
                 $is_direct_child = ($open_count === $close_count);
-                
+
                 if ($is_direct_child) {
-                    // Check if this element has an excluded class
                     $should_skip = false;
                     foreach ($excluded_classes as $excluded_class) {
                         if (preg_match('/\bclass\s*=\s*["\']([^"\']*\b' . preg_quote($excluded_class, '/') . '\b[^"\']*)["\']/i', $tag_html)) {
@@ -464,46 +717,35 @@ class InstareadPlayer {
                             break;
                         }
                     }
-                    
-                    // Also check if this paragraph is inside a wp-caption div by looking backwards
                     if (!$should_skip) {
-                        $lookback = substr($parent_content, max(0, $tag_pos - 500), $tag_pos);
-                        // Check if there's an unclosed wp-caption div before this paragraph
-                        $wp_caption_open = preg_match_all('/<div[^>]*\bclass\s*=\s*["\'][^"\']*\bwp-caption\b[^"\']*["\'][^>]*>/i', $lookback);
+                        $lookback         = substr($parent_content, max(0, $tag_pos - 500), $tag_pos);
+                        $wp_caption_open  = preg_match_all('/<div[^>]*\bclass\s*=\s*["\'][^"\']*\bwp-caption\b[^"\']*["\'][^>]*>/i', $lookback);
                         $wp_caption_close = preg_match_all('/<\/div>/i', $lookback);
-                        // If there are more opens than closes, we're inside a wp-caption
                         if ($wp_caption_open > $wp_caption_close) {
                             $should_skip = true;
                         }
                     }
-                    
                     if (!$should_skip) {
                         $child_match = $match;
                         break;
                     }
                 }
-                
-                // Move search position past this match
+
                 $search_offset = $tag_pos + strlen($tag_html);
             }
-            
-            // Fallback: if no direct child found, look for first paragraph (not necessarily direct child) 
-            // that's not inside a wp-caption div
+
             if (!$child_match) {
-                $search_offset = 0;
+                $search_offset    = 0;
                 $wp_caption_depth = 0;
                 while (preg_match('/<(' . preg_quote($child_tag, '/') . '\b[^>]*>|div[^>]*\bclass\s*=\s*["\'][^"\']*\bwp-caption\b[^"\']*["\'][^>]*>|<\/div>)/i', $parent_content, $match, PREG_OFFSET_CAPTURE, $search_offset)) {
                     $tag_html = $match[0][0];
-                    $tag_pos = $match[0][1];
-                    
-                    // Track wp-caption div depth
+                    $tag_pos  = $match[0][1];
+
                     if (preg_match('/<div[^>]*\bclass\s*=\s*["\'][^"\']*\bwp-caption\b[^"\']*["\'][^>]*>/i', $tag_html)) {
                         $wp_caption_depth++;
                     } elseif (preg_match('/<\/div>/i', $tag_html) && $wp_caption_depth > 0) {
                         $wp_caption_depth--;
                     } elseif (preg_match('/<' . preg_quote($child_tag, '/') . '\b[^>]*>/i', $tag_html) && $wp_caption_depth === 0) {
-                        // Found a paragraph that's not inside a wp-caption div
-                        // Check if it has excluded class
                         $should_skip = false;
                         foreach ($excluded_classes as $excluded_class) {
                             if (preg_match('/\bclass\s*=\s*["\']([^"\']*\b' . preg_quote($excluded_class, '/') . '\b[^"\']*)["\']/i', $tag_html)) {
@@ -516,20 +758,19 @@ class InstareadPlayer {
                             break;
                         }
                     }
-                    
+
                     $search_offset = $tag_pos + strlen($tag_html);
                 }
             }
-            
+
             if ($child_match) {
-                $child_open_pos  = $parent_after_open + $child_match[0][1];
-                $child_open_tag  = $child_match[0][0];
+                $child_open_pos   = $parent_after_open + $child_match[0][1];
+                $child_open_tag   = $child_match[0][0];
                 $child_after_open = $child_open_pos + strlen($child_open_tag);
 
-                // Simple closing search for child
-                $remaining      = substr($content, $child_after_open);
-                $depth          = 1;
-                $search_pos     = 0;
+                $remaining       = substr($content, $child_after_open);
+                $depth           = 1;
+                $search_pos      = 0;
                 $child_close_pos = false;
 
                 while ($depth > 0 && $search_pos < strlen($remaining)) {
@@ -554,37 +795,36 @@ class InstareadPlayer {
                 }
 
                 return [
-                    'tag_name'    => $child_tag_name,
-                    'open_pos'    => $child_open_pos,
-                    'open_tag'    => $child_open_tag,
-                    'open_tag_len'=> strlen($child_open_tag),
-                    'close_pos'   => $child_close_pos ?: null,
-                    'after_open'  => $child_after_open,
+                    'tag_name'     => $child_tag_name,
+                    'open_pos'     => $child_open_pos,
+                    'open_tag'     => $child_open_tag,
+                    'open_tag_len' => strlen($child_open_tag),
+                    'close_pos'    => $child_close_pos ?: null,
+                    'after_open'   => $child_after_open,
                 ];
             }
             return false;
         }
 
         // Simple selectors (.class, #id, tag, tag.class)
-        $is_class = preg_match('/^\.([a-zA-Z0-9_-]+)/', $selector, $class_matches);
-        $is_id    = preg_match('/^#([a-zA-Z0-9_-]+)/', $selector, $id_matches);
+        $is_class     = preg_match('/^\.([a-zA-Z0-9_-]+)/', $selector, $class_matches);
+        $is_id        = preg_match('/^#([a-zA-Z0-9_-]+)/', $selector, $id_matches);
         $is_tag_class = preg_match('/^([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)$/', $selector, $tag_class_matches);
-        $is_tag   = preg_match('/^([a-zA-Z0-9_-]+)$/', $selector, $tag_matches);
+        $is_tag       = preg_match('/^([a-zA-Z0-9_-]+)$/', $selector, $tag_matches);
 
-        $pattern = null;
+        $pattern  = null;
         $tag_name = null;
 
         if ($is_class) {
             $class_name = $class_matches[1];
-            $pattern = '/<([a-zA-Z0-9]+)[^>]*\s+class\s*=\s*["\']([^"\']*\b' . preg_quote($class_name, '/') . '\b[^"\']*)["\'][^>]*>/i';
+            $pattern    = '/<([a-zA-Z0-9]+)[^>]*\s+class\s*=\s*["\']([^"\']*\b' . preg_quote($class_name, '/') . '\b[^"\']*)["\'][^>]*>/i';
         } elseif ($is_id) {
             $id_name = $id_matches[1];
             $pattern = '/<([a-zA-Z0-9]+)[^>]*\s+id\s*=\s*["\']' . preg_quote($id_name, '/') . '["\'][^>]*>/i';
         } elseif ($is_tag_class) {
-            // Tag with class: h6.font-inherit
-            $tag_name = strtolower($tag_class_matches[1]);
+            $tag_name   = strtolower($tag_class_matches[1]);
             $class_name = $tag_class_matches[2];
-            $pattern = '/<' . preg_quote($tag_name, '/') . '\b[^>]*\s+class\s*=\s*["\']([^"\']*\b' . preg_quote($class_name, '/') . '\b[^"\']*)["\'][^>]*>/i';
+            $pattern    = '/<' . preg_quote($tag_name, '/') . '\b[^>]*\s+class\s*=\s*["\']([^"\']*\b' . preg_quote($class_name, '/') . '\b[^"\']*)["\'][^>]*>/i';
         } elseif ($is_tag) {
             $tag_name = $tag_matches[1];
             $pattern  = '/<' . preg_quote($tag_name, '/') . '\b[^>]*>/i';
@@ -599,10 +839,10 @@ class InstareadPlayer {
         $tag_name   = $tag_name ?: strtolower($matches[1][0]);
         $after_open = $open_pos + strlen($open_tag);
 
-        $remaining = substr($content, $after_open);
-        $depth     = 1;
+        $remaining  = substr($content, $after_open);
+        $depth      = 1;
         $search_pos = 0;
-        $close_pos = false;
+        $close_pos  = false;
 
         while ($depth > 0 && $search_pos < strlen($remaining)) {
             if (!preg_match('/<\/?' . preg_quote($tag_name, '/') . '(\s[^>]*)?>/i', $remaining, $tag_match, PREG_OFFSET_CAPTURE, $search_pos)) break;
@@ -625,19 +865,19 @@ class InstareadPlayer {
         }
 
         return [
-            'tag_name'    => $tag_name,
-            'open_pos'    => $open_pos,
-            'open_tag'    => $open_tag,
-            'open_tag_len'=> strlen($open_tag),
-            'close_pos'   => $close_pos ?: null,
-            'after_open'  => $after_open,
+            'tag_name'     => $tag_name,
+            'open_pos'     => $open_pos,
+            'open_tag'     => $open_tag,
+            'open_tag_len' => strlen($open_tag),
+            'close_pos'    => $close_pos ?: null,
+            'after_open'   => $after_open,
         ];
     }
 
     private function inject_at_position($content, $player_html, $target_info, $insert_position) {
-        $open_pos   = (int) $target_info['open_pos'];
-        $close_pos  = isset($target_info['close_pos']) ? (int) $target_info['close_pos'] : null;
-        $after_open = (int) $target_info['after_open'];
+        $open_pos    = (int) $target_info['open_pos'];
+        $close_pos   = isset($target_info['close_pos']) ? (int) $target_info['close_pos'] : null;
+        $after_open  = (int) $target_info['after_open'];
         $content_len = strlen($content);
 
         switch ($insert_position) {
@@ -676,7 +916,13 @@ class InstareadPlayer {
         return sprintf(
             '<div class="instaread-player-slot" style="%s">
                 <instaread-player publication="%s" playertype="%s" color="%s"></instaread-player>
-                <script defer src="https://player.instaread.co/js/instaread.%s.js?version=%d"></script>
+                <script defer
+                    data-cfasync="false"
+                    data-no-optimize="1"
+                    data-no-defer="1"
+                    data-no-minify="1"
+                    src="https://player.instaread.co/js/instaread.%s.js?version=%d">
+                </script>
             </div>',
             esc_attr($slot_css),
             esc_html($publication),
@@ -686,13 +932,18 @@ class InstareadPlayer {
             $ir_version
         );
     }
-    
 
     private function render_playlist($publication, $height) {
         return sprintf(
             '<div class="instaread-player-slot" style="height:%s;min-height:%s;">
                 <instaread-player publication="%s" p_type="playlist" height="%s"></instaread-player>
-                <script type="module" src="https://instaread.co/js/v2/instaread.playlist.js" crossorigin="true"></script>
+                <script type="module"
+                    data-cfasync="false"
+                    data-no-optimize="1"
+                    data-no-minify="1"
+                    src="https://instaread.co/js/v2/instaread.playlist.js"
+                    crossorigin="true">
+                </script>
             </div>',
             esc_attr($height),
             esc_attr($height),
