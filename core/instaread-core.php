@@ -422,6 +422,44 @@ class InstareadPlayer {
         $this->log('Rendered admin page');
     }
 
+    /**
+     * Returns true when the current request matches the configured injection_context.
+     *
+     * Called from both enqueue_assets() (to gate partner.js) and
+     * inject_server_side_player() (redundant safety check). WordPress
+     * conditional tags are fully available by the time either hook fires.
+     *
+     * Supports:
+     *   "post"     / "single"  → is_single()  (standard WP posts only)
+     *   "singular"             → is_singular() (posts + pages + CPTs)
+     *   "page"                 → is_page()
+     *   ["post", "review", …]  → is_singular() restricted to those post types
+     */
+    private function should_inject() {
+        $ctx = $this->settings['injection_context'];
+
+        // Array form: ["post", "custom_post_type", ...]
+        if (is_array($ctx)) {
+            if (!is_singular()) {
+                return false;
+            }
+            global $post;
+            return !empty($post) && in_array($post->post_type, $ctx, true);
+        }
+
+        switch ($ctx) {
+            case 'post':
+            case 'single':
+                return is_single();          // strictly WP posts (post_type = 'post')
+            case 'singular':
+                return is_singular();        // posts + pages + CPTs
+            case 'page':
+                return is_page();
+            default:
+                return false;
+        }
+    }
+
     public function enqueue_assets() {
         // FIX #10: $instaread_partner_css is only populated on front-end non-admin
         //          requests — so this global is safely null on admin/AJAX/REST/cron.
@@ -436,24 +474,62 @@ class InstareadPlayer {
 
         $partner_js_file = __DIR__ . '/partner.js';
         if (file_exists($partner_js_file)) {
-            wp_enqueue_script(
-                'instaread-partner-js',
-                plugin_dir_url(__FILE__) . 'partner.js',
-                [],
-                filemtime($partner_js_file),
-                true
-            );
-            $this->log('Enqueued partner.js');
+            // Only enqueue partner.js on pages that match injection_context.
+            // Previously this ran on every frontend page, causing partner.js to
+            // inject the player on login/static/page routes via DOM selectors.
+            if ($this->should_inject()) {
+                wp_enqueue_script(
+                    'instaread-partner-js',
+                    plugin_dir_url(__FILE__) . 'partner.js',
+                    [],
+                    filemtime($partner_js_file),
+                    true
+                );
+
+                // Generic JS-level double-injection guard injected from core.php.
+                // Runs before partner.js by wrapping document.addEventListener so that
+                // any DOMContentLoaded handler registered by partner.js is silently
+                // skipped when the player is already present (e.g. PHP server-side
+                // injection already ran, or a cached page was served twice).
+                // This approach requires zero changes to individual partner.js files.
+                wp_add_inline_script(
+                    'instaread-partner-js',
+                    '(function(){
+                        var _orig = document.addEventListener.bind(document);
+                        document.addEventListener = function(type, fn, opts) {
+                            if (type === "DOMContentLoaded") {
+                                var guarded = function(e) {
+                                    if (document.querySelector("instaread-player") ||
+                                        document.querySelector("script[src*=\"instaread.\"]")) {
+                                        return;
+                                    }
+                                    fn.call(this, e);
+                                };
+                                return _orig(type, guarded, opts);
+                            }
+                            return _orig(type, fn, opts);
+                        };
+                    })();',
+                    'before'
+                );
+
+                $this->log('Enqueued partner.js with double-injection guard.');
+            } else {
+                $this->log('Skipped partner.js: injection_context does not match current page.');
+            }
         }
     }
 
     public function inject_server_side_player($content) {
-        $debug_mode = $this->is_debug_enabled();
-
-        if (is_front_page() || is_home()) {
-            if ($debug_mode) $this->log('Skipping injection: homepage');
+        // Static flag: the_content can fire multiple times per request (e.g. in
+        // social-sharing plugins, SEO plugins, related-post widgets).  One
+        // injection is enough; subsequent calls return the content unmodified.
+        static $already_injected = false;
+        if ($already_injected) {
             return $content;
         }
+
+        $debug_mode = $this->is_debug_enabled();
 
         if (is_admin() || !is_main_query()) {
             return $content;
@@ -468,7 +544,15 @@ class InstareadPlayer {
             return $content;
         }
 
-        // Prevent double injection
+        // Context check — single authoritative gate using should_inject().
+        // Replaces the previous inline if/elseif chain and is consistent with
+        // the gate added in enqueue_assets() for partner.js.
+        if (!$this->should_inject()) {
+            if ($debug_mode) $this->log('Skipping injection: injection_context does not match current page.');
+            return $content;
+        }
+
+        // Prevent double injection from content already containing the player
         if (strpos($content, 'instaread-player-slot') !== false || strpos($content, 'instaread-player') !== false) {
             if ($debug_mode) $this->log('Skipping: player already present in content');
             return $content;
@@ -514,19 +598,6 @@ class InstareadPlayer {
 
         if ($normalized_exclude_slugs && in_array($current_slug, $normalized_exclude_slugs, true)) {
             if ($debug_mode) $this->log('Skipping excluded slug: ' . $current_slug);
-            return $content;
-        }
-
-        // Context check
-        $ctx = $this->settings['injection_context'];
-        if ($ctx === 'singular' && !is_singular()) {
-            if ($debug_mode) $this->log('Skipping: not singular');
-            return $content;
-        } elseif (($ctx === 'post' || $ctx === 'single') && !is_single()) {
-            if ($debug_mode) $this->log('Skipping: not a single post');
-            return $content;
-        } elseif ($ctx === 'page' && !is_page()) {
-            if ($debug_mode) $this->log('Skipping: not a page');
             return $content;
         }
 
@@ -577,11 +648,15 @@ class InstareadPlayer {
             );
         }
 
+        // Mark as done so re-entrant the_content calls skip injection.
+        $already_injected = true;
+
         return $content;
     }
 
     public function maybe_inject_via_footer() {
-        if (is_front_page() || is_home() || !is_singular() || is_admin()) {
+        // Respect injection_context — same gate as enqueue_assets() and inject_server_side_player().
+        if (is_admin() || !$this->should_inject()) {
             return;
         }
         global $post;
