@@ -460,6 +460,104 @@ class InstareadPlayer {
         }
     }
 
+    /**
+     * Opt-in (per partner config.json): load instaread.{publication}.js site-wide so the floating
+     * player can work off article pages. Default false — preserves legacy behavior unless enabled.
+     *
+     * Filter: instaread_enqueue_remote_player_script_sitewide — override boolean; receives settings and partner_config.
+     */
+    private function should_enqueue_remote_player_script_sitewide() {
+        $from_config = !empty($this->partner_config['enqueue_remote_player_script_sitewide']);
+        return (bool) apply_filters(
+            'instaread_enqueue_remote_player_script_sitewide',
+            $from_config,
+            $this->settings,
+            $this->partner_config
+        );
+    }
+
+    /**
+     * Publication id used in player URLs and instaread.{publication}.js (aligned with inject_server_side_player).
+     */
+    private function get_resolved_publication() {
+        $publication = $this->settings['publication'];
+        if (!empty($this->partner_config['dynamic_publication_from_host'])) {
+            $host_parts  = explode('.', parse_url(home_url(), PHP_URL_HOST));
+            $publication = reset($host_parts) ?: $publication;
+        }
+        return $publication;
+    }
+
+    /**
+     * Cache-buster for remote script URL (aligned with former inline script query string).
+     */
+    private function get_remote_instaread_script_version() {
+        return (int) (floor(time() / 60) * 60000);
+    }
+
+    /**
+     * Inline publisher script tag when not using site-wide wp_enqueue_script (legacy / default).
+     */
+    private function get_inline_instaread_player_script_tag($publication) {
+        $version = $this->get_remote_instaread_script_version();
+
+        return sprintf(
+            '<script defer
+                data-cfasync="false"
+                data-no-optimize="1"
+                data-no-defer="1"
+                data-no-minify="1"
+                src="https://player.instaread.co/js/instaread.%s.js?version=%d">
+            </script>',
+            esc_attr($publication),
+            $version
+        );
+    }
+
+    /**
+     * Enqueues https://player.instaread.co/js/instaread.{publication}.js on all front-end pages
+     * when should_enqueue_remote_player_script_sitewide() is true. Playlist partners use a different
+     * bundle from render_playlist(); skipped here.
+     *
+     * Filter: instaread_enqueue_remote_player_script — return false to disable; receives settings and partner_config.
+     */
+    private function maybe_enqueue_remote_instaread_player_script() {
+        if (is_admin() || is_feed()) {
+            return;
+        }
+        if (!apply_filters('instaread_enqueue_remote_player_script', true, $this->settings, $this->partner_config)) {
+            return;
+        }
+        if (!empty($this->partner_config['isPlaylist'])) {
+            return;
+        }
+        if (!$this->should_enqueue_remote_player_script_sitewide()) {
+            return;
+        }
+
+        $publication = $this->get_resolved_publication();
+        $version     = $this->get_remote_instaread_script_version();
+        $url         = sprintf(
+            'https://player.instaread.co/js/instaread.%s.js?version=%d',
+            rawurlencode($publication),
+            $version
+        );
+
+        wp_enqueue_script(
+            'instaread-remote-player',
+            $url,
+            [],
+            null,
+            true
+        );
+
+        if (function_exists('wp_script_add_data')) {
+            wp_script_add_data('instaread-remote-player', 'strategy', 'defer');
+        }
+
+        $this->log('Enqueued remote Instaread publisher script (sitewide / floating persistence).');
+    }
+
     public function enqueue_assets() {
         // FIX #10: $instaread_partner_css is only populated on front-end non-admin
         //          requests — so this global is safely null on admin/AJAX/REST/cron.
@@ -518,6 +616,9 @@ class InstareadPlayer {
                 $this->log('Skipped partner.js: injection_context does not match current page.');
             }
         }
+
+        // Opt-in: load publisher JS on every front-end URL when config requests it (floating player off post pages).
+        $this->maybe_enqueue_remote_instaread_player_script();
     }
 
     public function inject_server_side_player($content) {
@@ -530,6 +631,13 @@ class InstareadPlayer {
         }
 
         $debug_mode = $this->is_debug_enabled();
+
+        if (is_front_page() || is_home()) {
+            if ($debug_mode) {
+                $this->log('Skipping injection: front page / posts index');
+            }
+            return $content;
+        }
 
         if (is_admin() || !is_main_query()) {
             return $content;
@@ -601,11 +709,7 @@ class InstareadPlayer {
             return $content;
         }
 
-        $publication = $this->settings['publication'];
-        if (!empty($this->partner_config['dynamic_publication_from_host'])) {
-            $host_parts  = explode('.', parse_url(home_url(), PHP_URL_HOST));
-            $publication = reset($host_parts) ?: $publication;
-        }
+        $publication = $this->get_resolved_publication();
 
         $is_playlist     = !empty($this->partner_config['isPlaylist']);
         $player_type     = $this->partner_config['playerType'] ?? '';
@@ -656,7 +760,7 @@ class InstareadPlayer {
 
     public function maybe_inject_via_footer() {
         // Respect injection_context — same gate as enqueue_assets() and inject_server_side_player().
-        if (is_admin() || !$this->should_inject()) {
+        if (is_admin() || is_front_page() || is_home() || !$this->should_inject()) {
             return;
         }
         global $post;
@@ -987,25 +1091,26 @@ class InstareadPlayer {
     }
 
     private function render_single($publication, $type, $color, $slot_css) {
-        $ir_version = floor(time() / 60) * 60000;
-        return sprintf(
+        $slot = sprintf(
             '<div class="instaread-player-slot" style="%s">
                 <instaread-player publication="%s" playertype="%s" color="%s"></instaread-player>
-                <script defer
-                    data-cfasync="false"
-                    data-no-optimize="1"
-                    data-no-defer="1"
-                    data-no-minify="1"
-                    src="https://player.instaread.co/js/instaread.%s.js?version=%d">
-                </script>
             </div>',
             esc_attr($slot_css),
             esc_html($publication),
             esc_html($type),
-            esc_html($color),
-            esc_html($publication),
-            $ir_version
+            esc_html($color)
         );
+
+        // Site-wide enqueue: one copy via wp_enqueue_script when opt-in is on (see maybe_enqueue_remote_instaread_player_script).
+        if (
+            $this->should_enqueue_remote_player_script_sitewide()
+            && apply_filters('instaread_enqueue_remote_player_script', true, $this->settings, $this->partner_config)
+        ) {
+            return $slot;
+        }
+
+        // Legacy: inline script next to the slot (single templates where remote is not enqueued sitewide).
+        return $slot . $this->get_inline_instaread_player_script_tag($publication);
     }
 
     private function render_playlist($publication, $height) {

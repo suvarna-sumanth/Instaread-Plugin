@@ -1,10 +1,10 @@
 {
   "name": "Instaread Audio Player - iowaspulse",
-  "version": "4.4.2",
-  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/iowaspulse-v4.4.2/iowaspulse-v4.4.2.zip",
+  "version": "4.4.3",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/iowaspulse-v4.4.3/iowaspulse-v4.4.3.zip",
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.4.2</h4><ul><li>Partner-specific build for iowaspulse</li></ul>"
+    "changelog": "<h4>4.4.3</h4><ul><li>Partner-specific build for iowaspulse</li></ul>"
   }
 }
