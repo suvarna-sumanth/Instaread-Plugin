@@ -3,7 +3,7 @@
  * Plugin Name: Instaread Audio Player
  * Plugin URI: https://instaread.co
  * Description: Instaread auto-injecting player with partner configuration and full server-side rendering (no DOMDocument parsing, safer string injection)
- * Version: 4.2.7
+ * Version: 4.4.4
  * Author: Instaread Team
  */
 
@@ -56,7 +56,7 @@ class InstareadPlayer {
      * never triggers a file read on every request like get_plugin_data() did.
      * IMPORTANT: Keep this in sync with the Version header above.
      */
-    const PLUGIN_VERSION = '4.2.7';
+    const PLUGIN_VERSION = '4.4.4';
 
     /**
      * Domain pattern used to exclude our scripts from all caching/optimization plugins.
@@ -584,34 +584,7 @@ class InstareadPlayer {
                     true
                 );
 
-                // Generic JS-level double-injection guard injected from core.php.
-                // Runs before partner.js by wrapping document.addEventListener so that
-                // any DOMContentLoaded handler registered by partner.js is silently
-                // skipped when the player is already present (e.g. PHP server-side
-                // injection already ran, or a cached page was served twice).
-                // This approach requires zero changes to individual partner.js files.
-                wp_add_inline_script(
-                    'instaread-partner-js',
-                    '(function(){
-                        var _orig = document.addEventListener.bind(document);
-                        document.addEventListener = function(type, fn, opts) {
-                            if (type === "DOMContentLoaded") {
-                                var guarded = function(e) {
-                                    if (document.querySelector("instaread-player") ||
-                                        document.querySelector("script[src*=\"instaread.\"]")) {
-                                        return;
-                                    }
-                                    fn.call(this, e);
-                                };
-                                return _orig(type, guarded, opts);
-                            }
-                            return _orig(type, fn, opts);
-                        };
-                    })();',
-                    'before'
-                );
-
-                $this->log('Enqueued partner.js with double-injection guard.');
+                $this->log('Enqueued partner.js.');
             } else {
                 $this->log('Skipped partner.js: injection_context does not match current page.');
             }
