@@ -499,18 +499,15 @@ class InstareadPlayer {
      * Inline publisher script tag when not using site-wide wp_enqueue_script (legacy / default).
      */
     private function get_inline_instaread_player_script_tag($publication) {
-        $version = $this->get_remote_instaread_script_version();
-
         return sprintf(
             '<script defer
                 data-cfasync="false"
                 data-no-optimize="1"
                 data-no-defer="1"
                 data-no-minify="1"
-                src="https://player.instaread.co/js/instaread.%s.js?version=%d">
+                src="https://player.instaread.co/js/instaread.%s.js">
             </script>',
-            esc_attr($publication),
-            $version
+            esc_attr($publication)
         );
     }
 
@@ -536,11 +533,9 @@ class InstareadPlayer {
         }
 
         $publication = $this->get_resolved_publication();
-        $version     = $this->get_remote_instaread_script_version();
         $url         = sprintf(
-            'https://player.instaread.co/js/instaread.%s.js?version=%d',
-            rawurlencode($publication),
-            $version
+            'https://player.instaread.co/js/instaread.%s.js',
+            rawurlencode($publication)
         );
 
         wp_enqueue_script(
