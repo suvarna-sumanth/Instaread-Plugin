@@ -1,0 +1,15 @@
+@media only screen and (max-width: 660px) {
+  .instaread-player-slot {
+    height: 236px !important;
+  }
+}
+@media only screen and (min-width: 661px) and (max-width: 940px) {
+  .instaread-player-slot {
+    height: 160px !important;
+  }
+}
+@media only screen and (min-width: 941px) {
+  .instaread-player-slot {
+    height: 236px !important;
+  }
+}
