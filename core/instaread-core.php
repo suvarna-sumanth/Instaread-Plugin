@@ -120,6 +120,13 @@ class InstareadPlayer {
         // Footer fallback — only logs, never injects, to avoid duplicates
         add_action('wp_footer',          [$this, 'maybe_inject_via_footer'], 999);
 
+        // Strip SRI integrity attributes from Instaread script tags in the final HTML output.
+        // Some CDNs (Cloudflare) and security/caching plugins inject integrity="sha384-..." onto
+        // external scripts after our content is built. When the remote JS is updated the stale
+        // hash triggers a browser integrity mismatch error. Running at priority 0 (before output
+        // is sent) ensures we catch attributes added by plugins that run late on template_redirect.
+        add_action('template_redirect', [$this, 'start_sri_strip_buffer'], 0);
+
         add_filter('auto_update_plugin', [$this, 'enable_auto_updates'], 10, 2);
 
         $this->maybe_migrate_old_settings();
@@ -213,7 +220,15 @@ class InstareadPlayer {
         // and never passes through the WP script queue — the data-* attributes in render_single() do that job.
         // This filter is kept only as a safety net for any future enqueued scripts.
         add_filter('script_loader_tag', function ($tag, $handle) use ($pattern) {
-            if (strpos($tag, $pattern) !== false && strpos($tag, 'data-cfasync') === false) {
+            if (strpos($tag, $pattern) === false) {
+                return $tag;
+            }
+            // Strip SRI integrity + crossorigin attributes injected by caching/CDN plugins
+            // (e.g. Cloudflare, WP Rocket SRI, Autoptimize). When the remote JS is updated
+            // the cached hash becomes stale and causes an integrity mismatch error in browsers.
+            $tag = preg_replace('/\s+integrity="[^"]*"/', '', $tag);
+            $tag = preg_replace('/\s+crossorigin="[^"]*"/', '', $tag);
+            if (strpos($tag, 'data-cfasync') === false) {
                 $tag = str_replace(
                     '<script ',
                     '<script data-cfasync="false" data-no-optimize="1" data-no-defer="1" data-no-minify="1" ',
@@ -221,7 +236,7 @@ class InstareadPlayer {
                 );
             }
             return $tag;
-        }, 10, 2);
+        }, PHP_INT_MAX, 2);
     }
 
     // =========================================================================
@@ -1110,6 +1125,40 @@ class InstareadPlayer {
             update_option('instaread_settings', ['publication' => $old['publication'] ?? '']);
             delete_option('instaread_legacy_settings');
         }
+    }
+
+    // =========================================================================
+    // SRI INTEGRITY STRIP — OUTPUT BUFFER
+    //
+    // Catches integrity="sha384-..." and crossorigin="anonymous" attributes
+    // injected onto Instaread script tags by CDNs (Cloudflare SRI) or security/
+    // caching plugins AFTER our content is assembled. Only active on front-end
+    // non-admin requests. Buffer is only started when needed (front-end pages).
+    // =========================================================================
+
+    public function start_sri_strip_buffer() {
+        if (is_admin()) {
+            return;
+        }
+        ob_start([$this, 'strip_instaread_sri_attributes']);
+    }
+
+    public function strip_instaread_sri_attributes($html) {
+        // Only process pages that contain an Instaread script — fast bail otherwise.
+        if (strpos($html, 'instaread.co') === false) {
+            return $html;
+        }
+        // Match any <script ...> tag referencing instaread.co and strip integrity/crossorigin.
+        return preg_replace_callback(
+            '/<script\b[^>]*\bsrc=["\'][^"\']*instaread\.co[^"\']*["\'][^>]*>/i',
+            function ($matches) {
+                $tag = $matches[0];
+                $tag = preg_replace('/\s+integrity="[^"]*"/i', '', $tag);
+                $tag = preg_replace('/\s+crossorigin="anonymous"/i', '', $tag);
+                return $tag;
+            },
+            $html
+        );
     }
 }
 

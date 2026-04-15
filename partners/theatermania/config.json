@@ -2,7 +2,7 @@
     "partner_id": "theatermania",
     "domain": "theatermania.com",
     "publication": "theatermania",
-    "injection_context": "post",
+    "injection_context": "singular",
     "injection_strategy": "first",
     "injection_rules": [
       {
@@ -73,6 +73,6 @@
         ]
       }
     ],
-    "version": "4.2.0"
+    "version": "4.2.1"
   }
   
