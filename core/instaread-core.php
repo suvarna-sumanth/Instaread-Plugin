@@ -375,11 +375,12 @@ class InstareadPlayer {
         if ($this->partner_config) {
             $this->log('Loaded settings from partner config');
             return [
-                'publication'       => $this->partner_config['publication'] ?? 'default',
-                'injection_rules'   => $this->partner_config['injection_rules'] ?? [
+                'publication'         => $this->partner_config['publication'] ?? 'default',
+                'injection_rules'     => $this->partner_config['injection_rules'] ?? [
                     ['target_selector' => '.entry-content', 'insert_position' => 'append'],
                 ],
-                'injection_context' => $this->partner_config['injection_context'] ?? 'singular',
+                'injection_context'   => $this->partner_config['injection_context'] ?? 'singular',
+                'use_player_loader'   => !empty($this->partner_config['use_player_loader']),
             ];
         }
 
@@ -387,12 +388,13 @@ class InstareadPlayer {
         $this->log('Loaded settings from WP options');
 
         return [
-            'publication'       => $wp['publication'] ?? 'default',
-            'injection_rules'   => [[
+            'publication'         => $wp['publication'] ?? 'default',
+            'injection_rules'     => [[
                 'target_selector' => $wp['target_selector'] ?? '.entry-content',
                 'insert_position' => $wp['insert_position'] ?? 'append',
             ]],
-            'injection_context' => $wp['injection_context'] ?? 'singular',
+            'injection_context'   => $wp['injection_context'] ?? 'singular',
+            'use_player_loader'   => !empty($wp['use_player_loader']),
         ];
     }
 
@@ -504,6 +506,24 @@ class InstareadPlayer {
     }
 
     /**
+     * When true, emit instaread.playerv3.js (stable URL for partner SRI) instead of
+     * instaread.{publication}.js. playerv3 loads the publication bundle at runtime
+     * without an integrity attribute, so Instaread can ship publication updates freely.
+     *
+     * Enabled via partner config.json "use_player_loader": true, or WP option
+     * instaread_settings["use_player_loader"], or filter instaread_use_player_loader.
+     */
+    private function should_use_player_loader() {
+        $from_settings = !empty($this->settings['use_player_loader']);
+        return (bool) apply_filters(
+            'instaread_use_player_loader',
+            $from_settings,
+            $this->settings,
+            $this->partner_config
+        );
+    }
+
+    /**
      * Cache-buster for remote script URL (aligned with former inline script query string).
      */
     private function get_remote_instaread_script_version() {
@@ -527,6 +547,28 @@ class InstareadPlayer {
     }
 
     /**
+     * Inline playerv3.js loader script tag — used when should_use_player_loader() is true.
+     *
+     * playerv3.js is a thin, stable bootstrapper that reads the publication attribute from
+     * <instaread-player> elements already in the DOM and dynamically loads
+     * instaread.{publication}.js at runtime via document.createElement('script').
+     * Because the publication bundle is fetched without an integrity attribute, Instaread
+     * can update it freely without causing hash-mismatch errors on the partner's side.
+     *
+     * Partners who pin playerv3.js with their own integrity="..." are safe to do so — the
+     * file itself is intentionally stable and changes only on major architectural updates.
+     */
+    private function get_inline_playerv3_script_tag() {
+        return '<script defer
+                data-cfasync="false"
+                data-no-optimize="1"
+                data-no-defer="1"
+                data-no-minify="1"
+                src="https://player.instaread.co/js/instaread.playerv3.js">
+            </script>';
+    }
+
+    /**
      * Enqueues https://player.instaread.co/js/instaread.{publication}.js on all front-end pages
      * when should_enqueue_remote_player_script_sitewide() is true. Playlist partners use a different
      * bundle from render_playlist(); skipped here.
@@ -544,6 +586,24 @@ class InstareadPlayer {
             return;
         }
         if (!$this->should_enqueue_remote_player_script_sitewide()) {
+            return;
+        }
+
+        // Config guard: when use_player_loader is enabled, enqueue playerv3.js sitewide instead
+        // of the publication-specific bundle. playerv3.js reads <instaread-player publication="...">
+        // from the DOM and dynamically loads the publication bundle — no integrity risk on updates.
+        if ($this->should_use_player_loader()) {
+            wp_enqueue_script(
+                'instaread-player-loader',
+                'https://player.instaread.co/js/instaread.playerv3.js',
+                [],
+                null,
+                true
+            );
+            if (function_exists('wp_script_add_data')) {
+                wp_script_add_data('instaread-player-loader', 'strategy', 'defer');
+            }
+            $this->log('Enqueued playerv3 loader script sitewide (use_player_loader enabled).');
             return;
         }
 
@@ -1092,7 +1152,16 @@ class InstareadPlayer {
             return $slot;
         }
 
-        // Legacy: inline script next to the slot (single templates where remote is not enqueued sitewide).
+        // Config guard: use playerv3.js as a stable loader when use_player_loader is set (config.json
+        // or WP instaread_settings) or the instaread_use_player_loader filter returns true.
+        // playerv3.js dynamically loads instaread.{publication}.js at runtime (no integrity attr on that
+        // dynamic request), so partners can safely pin integrity to playerv3.js without breaking on
+        // future publication bundle updates.
+        if ($this->should_use_player_loader()) {
+            return $slot . $this->get_inline_playerv3_script_tag();
+        }
+
+        // Legacy: inline publication script next to the slot.
         return $slot . $this->get_inline_instaread_player_script_tag($publication);
     }
 
