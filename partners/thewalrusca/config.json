@@ -2,6 +2,7 @@
   "partner_id": "thewalrusca",
   "domain": "thewalrusca.com",
   "publication": "thewalrusca",
+  "enqueue_remote_player_script_sitewide": true,
   "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
@@ -69,5 +70,5 @@
       ]
     }
   ],
-  "version": "4.4.4"
+  "version": "4.4.5"
 }
