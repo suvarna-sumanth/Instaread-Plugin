@@ -7,9 +7,9 @@
   "injection_strategy": "first",
   "injection_rules": [
     {
-      "target_selector": ".tds-content > p",
-      "insert_position": "before_element",
-       "exclude_slugs": [
+      "target_selector": ".wp-block-kadence-dynamichtml",
+      "insert_position": "prepend",
+      "exclude_slugs": [
         "/",
         "/category/rumors/",
         "/official-2025-26-lakers-regular-season-schedule/",
@@ -75,5 +75,5 @@
       ]
     }
   ],
-  "version": "4.4.3"
+  "version": "4.4.4"
 }
