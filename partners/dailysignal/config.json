@@ -10,6 +10,7 @@
       "target_selector": ".wp-block-kadence-dynamichtml",
       "insert_position": "prepend",
       "exclude_slugs": [
+        "/author",
         "/",
         "/category/rumors/",
         "/official-2025-26-lakers-regular-season-schedule/",
@@ -75,5 +76,8 @@
       ]
     }
   ],
-  "version": "4.4.4"
+  "exclude_url_patterns": [
+    "/author"
+  ],
+  "version": "4.4.5"
 }

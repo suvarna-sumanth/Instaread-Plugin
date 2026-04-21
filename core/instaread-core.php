@@ -453,6 +453,20 @@ class InstareadPlayer {
      *   ["post", "review", …]  → is_singular() restricted to those post types
      */
     private function should_inject() {
+        // URL pattern exclusion — checked before WP conditional tags so it
+        // works even when themes run secondary loops on archive/author pages.
+        // Config key: exclude_url_patterns (array of path prefixes, e.g. "/author").
+        if (!empty($this->partner_config['exclude_url_patterns']) && is_array($this->partner_config['exclude_url_patterns'])) {
+            $request_path = strtok($_SERVER['REQUEST_URI'] ?? '/', '?');
+            $request_path = rtrim($request_path, '/') ?: '/';
+            foreach ($this->partner_config['exclude_url_patterns'] as $pattern) {
+                $pattern = rtrim(trim($pattern), '/') ?: '/';
+                if ($request_path === $pattern || strpos($request_path, $pattern . '/') === 0) {
+                    return false;
+                }
+            }
+        }
+
         $ctx = $this->settings['injection_context'];
 
         // Array form: ["post", "custom_post_type", ...]
@@ -747,9 +761,14 @@ class InstareadPlayer {
             return $slug === '' ? '/' : $slug;
         }, $exclude_slugs);
 
-        if ($normalized_exclude_slugs && in_array($current_slug, $normalized_exclude_slugs, true)) {
-            if ($debug_mode) $this->log('Skipping excluded slug: ' . $current_slug);
-            return $content;
+        if ($normalized_exclude_slugs) {
+            foreach ($normalized_exclude_slugs as $excluded) {
+                // Exact match OR prefix match: /author excludes /author/any-name
+                if ($current_slug === $excluded || strpos($current_slug, $excluded . '/') === 0) {
+                    if ($debug_mode) $this->log('Skipping excluded slug: ' . $current_slug);
+                    return $content;
+                }
+            }
         }
 
         $publication = $this->get_resolved_publication();
