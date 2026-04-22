@@ -1,24 +1,23 @@
-
 @media only screen and (max-width: 670px) {
-                                    .instaread-player-slot {
-                                        height: 236px !important;
-                                    }
-                                }
+    .instaread-player-slot {
+        height: 236px !important;
+    }
+}
 
-                                @media only screen and (min-width: 671px) and (max-width: 992px) {
-                                    .instaread-player-slot {
-                                        height: 160px !important;
-                                    }
-                                }
+@media only screen and (min-width: 671px) and (max-width: 992px) {
+    .instaread-player-slot {
+        height: 160px !important;
+    }
+}
 
-                                @media only screen and (min-width: 993px) and (max-width: 1199px) {
-                                    .instaread-player-slot {
-                                        height: 236px !important;
-                                    }
-                                }
+@media only screen and (min-width: 993px) and (max-width: 1199px) {
+    .instaread-player-slot {
+        height: 236px !important;
+    }
+}
 
-                                @media only screen and (min-width: 661px) {
-                                    .instaread-player-slot {
-                                        height: 160px !important;
-                                    }
-                                }
+@media only screen and (min-width: 1200px) {
+    .instaread-player-slot {
+        height: 160px !important;
+    }
+}
