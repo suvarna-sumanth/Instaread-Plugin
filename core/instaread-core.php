@@ -127,7 +127,10 @@ class InstareadPlayer {
         // is sent) ensures we catch attributes added by plugins that run late on template_redirect.
         add_action('template_redirect', [$this, 'start_sri_strip_buffer'], 0);
 
-        add_filter('auto_update_plugin', [$this, 'enable_auto_updates'], 10, 2);
+        add_filter('auto_update_plugin',      [$this, 'enable_auto_updates'], 10, 2);
+        add_action('upgrader_process_complete', [$this, 'on_plugin_updated'], 10, 2);
+        add_action('admin_notices',            [$this, 'show_update_admin_notice']);
+        add_action('admin_init',               [$this, 'maybe_send_heartbeat']);
 
         $this->maybe_migrate_old_settings();
         $this->log('Instaread Player initialized.');
@@ -403,6 +406,99 @@ class InstareadPlayer {
         $result          = (isset($item->plugin) && $item->plugin === $plugin_basename) ? true : $update;
         $this->log('Auto-update checked for: ' . $plugin_basename . ' Result: ' . ($result ? 'Enabled' : 'Disabled'));
         return $result;
+    }
+
+    /**
+     * Fires after WordPress completes any plugin upgrade.
+     * Sets a transient so we can show an admin notice, then pings telemetry.
+     */
+    public function on_plugin_updated($upgrader, $hook_extra) {
+        $action = $hook_extra['action'] ?? '';
+        $type   = $hook_extra['type']   ?? '';
+
+        if ($type !== 'plugin' || !in_array($action, ['install', 'update'], true)) {
+            return;
+        }
+
+        // Fresh install: $hook_extra['plugin'] is the plugin basename
+        // Auto-update: $hook_extra['plugins'] is an array of basenames
+        $our_basename = plugin_basename(__FILE__);
+        $affected = $action === 'install'
+            ? [$hook_extra['plugin'] ?? '']
+            : (array) ($hook_extra['plugins'] ?? []);
+
+        if (!in_array($our_basename, $affected, true)) {
+            return;
+        }
+
+        $old_version = get_option(self::VERSION_OPTION_KEY, '0');
+
+        if ($action === 'install') {
+            set_transient('instaread_just_installed', $this->plugin_version, DAY_IN_SECONDS);
+            $this->send_telemetry('install', null, $this->plugin_version);
+        } else {
+            set_transient('instaread_just_updated', $this->plugin_version, DAY_IN_SECONDS);
+            $this->send_telemetry('update', $old_version, $this->plugin_version);
+        }
+    }
+
+    /**
+     * Shows a dismissible admin notice once after an auto-update completes.
+     */
+    public function show_update_admin_notice() {
+        $partner = $this->partner_config['partner_id'] ?? '';
+        $label   = $partner ? "Instaread Player ({$partner})" : 'Instaread Player';
+
+        if ($version = get_transient('instaread_just_installed')) {
+            delete_transient('instaread_just_installed');
+            echo '<div class="notice notice-success is-dismissible"><p>'
+                . '<strong>' . esc_html($label) . '</strong> v<strong>' . esc_html($version)
+                . '</strong> has been installed successfully.</p></div>';
+            return;
+        }
+
+        if ($version = get_transient('instaread_just_updated')) {
+            delete_transient('instaread_just_updated');
+            echo '<div class="notice notice-success is-dismissible"><p>'
+                . '<strong>' . esc_html($label) . '</strong> was updated to version <strong>'
+                . esc_html($version) . '</strong>.</p></div>';
+        }
+    }
+
+    /**
+     * Sends a once-daily heartbeat ping so we know the plugin is active.
+     */
+    public function maybe_send_heartbeat() {
+        if (get_transient('instaread_heartbeat_sent')) {
+            return;
+        }
+        set_transient('instaread_heartbeat_sent', 1, DAY_IN_SECONDS);
+        $this->send_telemetry('heartbeat', null, $this->plugin_version);
+    }
+
+    /**
+     * Non-blocking fire-and-forget POST to player-api telemetry endpoint.
+     * Used for both 'update' and 'heartbeat' events.
+     */
+    private function send_telemetry($event, $old_version, $new_version) {
+        $telemetry_endpoint = defined('INSTAREAD_TELEMETRY_ENDPOINT')
+            ? INSTAREAD_TELEMETRY_ENDPOINT
+            : 'https://player-api.instaread.co/api/plugin-telemetry';
+
+        wp_remote_post($telemetry_endpoint, [
+            'body'     => wp_json_encode([
+                'event'       => $event,
+                'partner_id'  => $this->partner_config['partner_id'] ?? 'unknown',
+                'version'     => $new_version,
+                'old_version' => $old_version,
+                'site_url'    => get_site_url(),
+                'timestamp'   => time(),
+            ]),
+            'headers'  => ['Content-Type' => 'application/json'],
+            'timeout'  => 5,
+            'blocking' => false,
+        ]);
+        $this->log("Telemetry sent: event={$event} version={$new_version}");
     }
 
     public function register_settings() {
@@ -851,6 +947,10 @@ class InstareadPlayer {
         }
 
         if (empty($target_selector)) {
+            // WordPress-native injection: $content is already just the article body
+            // (from the_content filter), so CSS selectors won't match. Empty selector
+            // means: directly prepend/append player to article body without selector
+            // searching or JS mover fallback.
             if (in_array($insert_position, ['prepend', 'inside_first_child', 'before_element'], true)) {
                 return $player_html . $content;
             }
