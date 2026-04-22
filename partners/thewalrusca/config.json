@@ -5,9 +5,14 @@
   "enqueue_remote_player_script_sitewide": true,
   "injection_context": "post",
   "injection_strategy": "first",
+  "fallback_injection": false,
   "injection_rules": [
     {
-      "target_selector": "",
+      "target_selector": ".special-series-body h1",
+      "insert_position": "before_element"
+    },
+    {
+      "target_selector": ".entry-content",
       "insert_position": "prepend",
       "exclude_slugs": [
         "/",
@@ -70,5 +75,5 @@
       ]
     }
   ],
-  "version": "4.4.5"
+  "version": "4.4.6"
 }

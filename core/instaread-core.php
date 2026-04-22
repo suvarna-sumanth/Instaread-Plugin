@@ -800,8 +800,13 @@ class InstareadPlayer {
             }
         }
 
-        // Fallback: use first rule if nothing matched
-        if (!$injected && !empty($this->settings['injection_rules'])) {
+        // Fallback: use first rule with JS-mover if nothing matched.
+        // Suppressed when partner config sets "fallback_injection": false — meaning
+        // "only inject when one of the listed selectors is actually found in the content".
+        // Use this when multiple ordered selectors are defined and injecting into an
+        // unrelated location is worse than not injecting at all.
+        $allow_fallback_injection = $this->partner_config['fallback_injection'] ?? true;
+        if (!$injected && $allow_fallback_injection && !empty($this->settings['injection_rules'])) {
             $first_rule  = $this->settings['injection_rules'][0];
             $player_html = $is_playlist
                 ? $this->render_playlist($publication, $playlist_height)
@@ -814,6 +819,8 @@ class InstareadPlayer {
                 $first_rule['insert_position'] ?? 'append',
                 true
             );
+        } elseif (!$injected && !$allow_fallback_injection && $debug_mode) {
+            $this->log('No selector matched and fallback_injection is disabled — skipping injection.');
         }
 
         // Mark as done so re-entrant the_content calls skip injection.
