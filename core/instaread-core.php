@@ -1360,3 +1360,4 @@ class InstareadPlayer {
 }
 
 InstareadPlayer::init();
+
