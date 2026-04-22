@@ -410,6 +410,17 @@ class InstareadPlayer {
     }
 
     /**
+     * Fires immediately on plugin activation via register_activation_hook.
+     * Ensures telemetry is sent even if upgrader_process_complete doesn't fire.
+     */
+    public function on_plugin_activated() {
+        $old_version = get_option(self::VERSION_OPTION_KEY, '0');
+        update_option(self::VERSION_OPTION_KEY, $this->plugin_version);
+        $this->send_telemetry('install', null, $this->plugin_version);
+        $this->log('Plugin activated, telemetry sent. Old version: ' . $old_version);
+    }
+
+    /**
      * Fires after WordPress completes any plugin upgrade.
      * Sets a transient so we can show an admin notice, then pings telemetry.
      */
@@ -1383,6 +1394,13 @@ class InstareadPlayer {
         );
     }
 }
+
+register_activation_hook(__FILE__, function() {
+    $player = InstareadPlayer::init();
+    if (method_exists($player, 'on_plugin_activated')) {
+        $player->on_plugin_activated();
+    }
+});
 
 InstareadPlayer::init();
 
