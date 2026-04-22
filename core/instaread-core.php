@@ -3,7 +3,7 @@
  * Plugin Name: Instaread Audio Player
  * Plugin URI: https://instaread.co
  * Description: Instaread auto-injecting player with partner configuration and full server-side rendering (no DOMDocument parsing, safer string injection)
- * Version: 4.4.5
+ * Version: 4.4.6
  * Author: Instaread Team
  */
 
@@ -56,7 +56,7 @@ class InstareadPlayer {
      * never triggers a file read on every request like get_plugin_data() did.
      * IMPORTANT: Keep this in sync with the Version header above.
      */
-    const PLUGIN_VERSION = '4.4.5';
+    const PLUGIN_VERSION = '4.4.6';
 
     /**
      * Domain pattern used to exclude our scripts from all caching/optimization plugins.
