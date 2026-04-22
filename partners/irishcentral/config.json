@@ -4,9 +4,11 @@
   "publication": "irishcentral",
   "injection_context": "post",
   "injection_strategy": "first",
+  "fallback_injection": true,
+  "player_position": "above-content",
   "injection_rules": [
     {
-      "target_selector": "",
+      "target_selector": ".article-content, .entry-content, .post-content, article",
       "insert_position": "prepend",
       "exclude_slugs": [
         "/",
