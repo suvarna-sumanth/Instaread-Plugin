@@ -411,13 +411,10 @@ class InstareadPlayer {
 
     /**
      * Fires immediately on plugin activation via register_activation_hook.
-     * Ensures telemetry is sent even if upgrader_process_complete doesn't fire.
+     * Sets a flag so telemetry is sent on next admin_init.
      */
     public function on_plugin_activated() {
-        $old_version = get_option(self::VERSION_OPTION_KEY, '0');
-        update_option(self::VERSION_OPTION_KEY, $this->plugin_version);
-        $this->send_telemetry('install', null, $this->plugin_version);
-        $this->log('Plugin activated, telemetry sent. Old version: ' . $old_version);
+        set_transient('instaread_send_activation_telemetry', 1, HOUR_IN_SECONDS);
     }
 
     /**
@@ -455,27 +452,21 @@ class InstareadPlayer {
     }
 
     /**
-     * Fallback: Send activation telemetry on first admin_init after plugin activation.
-     * This catches installations where upgrader_process_complete doesn't fire
-     * (e.g., manual FTP uploads or some hosting environments).
+     * Send activation telemetry on first admin_init after plugin activation.
+     * Triggered by transient set in on_plugin_activated().
      */
     public function maybe_send_activation_telemetry() {
-        $activation_key = 'instaread_activation_telemetry_sent';
-        if (get_option($activation_key)) {
+        if (!get_transient('instaread_send_activation_telemetry')) {
             return;
         }
 
-        $installed_version = get_option(self::VERSION_OPTION_KEY);
-        if ($installed_version === $this->plugin_version) {
-            return;
-        }
+        delete_transient('instaread_send_activation_telemetry');
 
+        $old_version = get_option(self::VERSION_OPTION_KEY, '0');
         update_option(self::VERSION_OPTION_KEY, $this->plugin_version);
-        update_option($activation_key, 1);
 
-        if (empty($installed_version) || $installed_version === '0') {
-            $this->send_telemetry('install', null, $this->plugin_version);
-        }
+        $this->send_telemetry('install', $old_version, $this->plugin_version);
+        $this->log('Activation telemetry sent via admin_init fallback.');
     }
 
     /**
