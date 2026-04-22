@@ -131,6 +131,7 @@ class InstareadPlayer {
         add_action('upgrader_process_complete', [$this, 'on_plugin_updated'], 10, 2);
         add_action('admin_notices',            [$this, 'show_update_admin_notice']);
         add_action('admin_init',               [$this, 'maybe_send_heartbeat']);
+        add_action('admin_init',               [$this, 'maybe_send_activation_telemetry']);
 
         $this->maybe_migrate_old_settings();
         $this->log('Instaread Player initialized.');
@@ -439,6 +440,30 @@ class InstareadPlayer {
         } else {
             set_transient('instaread_just_updated', $this->plugin_version, DAY_IN_SECONDS);
             $this->send_telemetry('update', $old_version, $this->plugin_version);
+        }
+    }
+
+    /**
+     * Fallback: Send activation telemetry on first admin_init after plugin activation.
+     * This catches installations where upgrader_process_complete doesn't fire
+     * (e.g., manual FTP uploads or some hosting environments).
+     */
+    public function maybe_send_activation_telemetry() {
+        $activation_key = 'instaread_activation_telemetry_sent';
+        if (get_option($activation_key)) {
+            return;
+        }
+
+        $installed_version = get_option(self::VERSION_OPTION_KEY);
+        if ($installed_version === $this->plugin_version) {
+            return;
+        }
+
+        update_option(self::VERSION_OPTION_KEY, $this->plugin_version);
+        update_option($activation_key, 1);
+
+        if (empty($installed_version) || $installed_version === '0') {
+            $this->send_telemetry('install', null, $this->plugin_version);
         }
     }
 
