@@ -3,6 +3,7 @@
   "domain": "dailysignal.com",
   "publication": "dailysignal",
   "enqueue_remote_player_script_sitewide": true,
+  "suppress_body_classes": ["single-post-author"],
   "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
@@ -75,5 +76,5 @@
       ]
     }
   ],
-  "version": "4.4.4"
+  "version": "4.4.6"
 }

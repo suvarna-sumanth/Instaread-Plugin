@@ -453,6 +453,27 @@ class InstareadPlayer {
      *   ["post", "review", …]  → is_singular() restricted to those post types
      */
     private function should_inject() {
+        // Body class suppression — checked first because it is the most authoritative
+        // signal for custom post types (e.g. 'post-author' CPT) that share the /author/
+        // URL prefix but resolve as is_singular() = true, which would otherwise pass
+        // the injection_context gate below.
+        //
+        // WordPress adds  'single-post-{post_type}'  to the body for every singular CPT.
+        // A regular article gets 'single-post'; an author profile CPT gets 'single-post-author'.
+        //
+        // Config key: suppress_body_classes  (array, e.g. ["single-post-author"])
+        // The script (enqueue_remote_player_script_sitewide) is NOT gated here — it is
+        // controlled separately by maybe_enqueue_remote_instaread_player_script() so the
+        // floating player JS still loads on suppressed pages.
+        if (!empty($this->partner_config['suppress_body_classes']) && is_array($this->partner_config['suppress_body_classes'])) {
+            $body_classes = (array) get_body_class();
+            foreach ($this->partner_config['suppress_body_classes'] as $blocked_class) {
+                if (in_array(trim((string) $blocked_class), $body_classes, true)) {
+                    return false;
+                }
+            }
+        }
+
         $ctx = $this->settings['injection_context'];
 
         // Array form: ["post", "custom_post_type", ...]
