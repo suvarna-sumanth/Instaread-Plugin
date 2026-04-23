@@ -133,6 +133,7 @@ class InstareadPlayer {
         add_action('admin_init',               [$this, 'maybe_send_heartbeat']);
         add_action('admin_init',               [$this, 'maybe_send_activation_telemetry']);
         add_action('wp_loaded',                [$this, 'maybe_force_update_check']);
+        add_action('wp_loaded',                [$this, 'handle_loopback_update_check']);
         add_action('instaread_maybe_auto_update', [$this, 'trigger_auto_update_now']);
 
         $this->maybe_migrate_old_settings();
@@ -499,21 +500,85 @@ class InstareadPlayer {
         delete_transient('update_plugins');
 
         // Set a transient flag to trigger auto-update on next request
-        // WordPress' auto_update_plugin filter will see this and apply the update
         set_transient('instaread_force_update', $partner_id, HOUR_IN_SECONDS);
 
-        // Also immediately trigger update check
+        // Immediately trigger update check
         if (function_exists('wp_update_plugins')) {
             wp_update_plugins();
             $this->log('Update check executed for ' . $partner_id);
         }
 
-        // Schedule a background event to trigger the actual update
+        // Schedule immediate cron event to apply updates
         if (!wp_next_scheduled('instaread_maybe_auto_update')) {
-            wp_schedule_single_event(time() + 2, 'instaread_maybe_auto_update');
+            wp_schedule_single_event(time(), 'instaread_maybe_auto_update');
         }
 
-        $this->log('Auto-update scheduled for ' . $partner_id);
+        // Also trigger a loopback request to ensure WordPress runs and processes updates
+        $this->trigger_loopback_update_check($partner_id);
+
+        $this->log('Auto-update triggered for ' . $partner_id);
+    }
+
+    /**
+     * Trigger a loopback request to force WordPress to run and process pending updates.
+     * This ensures the upgrade process runs even if no one visits the site.
+     */
+    private function trigger_loopback_update_check($partner_id) {
+        // Get site URL
+        $site_url = home_url('/?instaread_update_check=' . urlencode($partner_id));
+
+        // Use a loopback request with a unique marker
+        $response = wp_safe_remote_get(
+            $site_url,
+            [
+                'blocking'  => false,  // Non-blocking so webhook doesn't wait
+                'timeout'   => 5,
+                'sslverify' => apply_filters('https_local_ssl_verify', false),
+            ]
+        );
+
+        if (is_wp_error($response)) {
+            $this->log('Loopback request failed: ' . $response->get_error_message());
+        } else {
+            $this->log('Loopback update check triggered');
+        }
+    }
+
+    /**
+     * Handle loopback update check request.
+     * This runs WordPress' update process in a proper context.
+     */
+    public function handle_loopback_update_check() {
+        $partner_id = isset($_GET['instaread_update_check']) ? sanitize_text_field($_GET['instaread_update_check']) : '';
+
+        if (empty($partner_id) || $partner_id !== ($this->partner_config['partner_id'] ?? '')) {
+            return;
+        }
+
+        $this->log('Loopback check: Forcing update check');
+
+        // Clear transients
+        delete_transient('update_plugins');
+        delete_transient('plugin_update_checker_' . $partner_id);
+
+        // Check for updates
+        if (function_exists('wp_update_plugins')) {
+            wp_update_plugins();
+        }
+
+        // Get updates and auto-apply if available
+        $updates = get_site_transient('update_plugins');
+        if (!empty($updates->response)) {
+            $our_basename = plugin_basename(__FILE__);
+            if (isset($updates->response[$our_basename])) {
+                // Trigger auto-update via WordPress' filter
+                do_action('wp_update_plugins');
+                $this->log('Auto-update check triggered for ' . $partner_id);
+            }
+        }
+
+        // Exit silently (don't output HTML)
+        wp_die('', '', ['response' => 200]);
     }
 
     /**
