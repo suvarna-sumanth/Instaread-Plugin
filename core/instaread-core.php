@@ -635,6 +635,14 @@ class InstareadPlayer {
 
         $this->log('Auto-update result: ' . print_r($result, true));
         $this->log('Skin feedback: ' . print_r($skin->get_upgrade_messages(), true));
+
+        // Send telemetry email if install succeeded
+        if ($result) {
+            $old_version = get_option(self::VERSION_OPTION_KEY, $current_version);
+            $this->send_telemetry('update', $old_version, $remote_version);
+            set_transient('instaread_just_updated', $remote_version, DAY_IN_SECONDS);
+        }
+
         delete_transient('instaread_force_update');
     }
 
