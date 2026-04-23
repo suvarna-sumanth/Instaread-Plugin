@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.4.12</h4><ul><li>Auto-update webhook test - instant update enabled</li></ul>"
+    "changelog": "<h4>4.4.12</h4><ul><li>Partner-specific build for hollywoodintoto</li></ul>"
   }
 }
