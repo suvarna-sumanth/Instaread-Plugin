@@ -7,8 +7,8 @@
   "injection_strategy": "first",
   "injection_rules": [
     {
-      "target_selector": ".entry-content p",
-      "insert_position": "before_element",
+      "target_selector": ".entry-content figure",
+      "insert_position": "after_element",
       "exclude_slugs": [
         "/",
         "/category/rumors/",
@@ -75,5 +75,5 @@
       ]
     }
   ],
-  "version": "4.4.6"
+  "version": "4.4.7"
 }
