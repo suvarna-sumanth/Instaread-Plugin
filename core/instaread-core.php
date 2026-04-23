@@ -596,8 +596,14 @@ class InstareadPlayer {
             return;
         }
 
-        // Import upgrader classes
+        // Import all required upgrader dependencies (needed on non-admin/loopback requests)
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/misc.php';
         require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+        // WP_Filesystem must be initialized before Plugin_Upgrader can write files
+        WP_Filesystem();
 
         // Create an upgrader instance and perform the update
         $upgrader = new \Plugin_Upgrader();
