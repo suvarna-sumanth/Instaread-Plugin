@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.4.20</h4><ul><li>Add loopback request to trigger WordPress cron for instant updates</li></ul>"
+    "changelog": "<h4>4.4.20</h4><ul><li>Partner-specific build for hollywoodintoto</li></ul>"
   }
 }
