@@ -1,0 +1,10 @@
+{
+  "name": "Instaread Audio Player - oann",
+  "version": "4.4.6",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/oann-v4.4.6/oann-v4.4.6.zip",
+  "requires": "5.6",
+  "tested": "6.5",
+  "sections": {
+    "changelog": "<h4>4.4.6</h4><ul><li>Partner-specific build for oann</li></ul>"
+  }
+}
