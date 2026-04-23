@@ -490,27 +490,20 @@ class InstareadPlayer {
             return;
         }
 
-        $this->log('Webhook triggered instant update check for ' . $force_check);
-
-        // Clear the update cache transient to force immediate check
         $partner_id = $this->partner_config['partner_id'] ?? '';
-        delete_transient('plugin_update_checker_' . $partner_id);
+        $this->log('Webhook triggered instant update check for ' . $partner_id);
 
-        // Immediately trigger update check by calling the PUC checker
-        // This ensures updates are detected and can be applied right away
-        if (class_exists('YahnisElsts\PluginUpdateChecker\v5\PucFactory')) {
-            try {
-                $update_checker = PucFactory::buildUpdateChecker(
-                    'https://github.com/suvarna-sumanth/Instaread-Plugin/',
-                    __FILE__,
-                    $partner_id
-                );
-                $update_checker->checkForUpdates();
-                $this->log('Update check completed for ' . $partner_id);
-            } catch (Exception $e) {
-                $this->log('Update check error: ' . $e->getMessage());
-            }
+        // Clear all update cache transients to force immediate check
+        delete_transient('plugin_update_checker_' . $partner_id);
+        delete_transient('update_plugins');
+
+        // Schedule an immediate cron event to check for plugin updates
+        // This will trigger WordPress' update mechanism right away
+        if (!wp_next_scheduled('wp_update_plugins')) {
+            wp_schedule_single_event(time(), 'wp_update_plugins');
         }
+
+        $this->log('Update check scheduled for ' . $partner_id);
     }
 
     /**
