@@ -490,15 +490,27 @@ class InstareadPlayer {
             return;
         }
 
-        $this->log('Webhook triggered instant update check');
+        $this->log('Webhook triggered instant update check for ' . $force_check);
 
         // Clear the update cache transient to force immediate check
         $partner_id = $this->partner_config['partner_id'] ?? '';
         delete_transient('plugin_update_checker_' . $partner_id);
 
-        // This will trigger the update check when wp_admin or cron next runs
-        // For immediate effect during web request, we could call wp_update_plugins()
-        // but that's heavy, so we let it happen naturally on next admin load
+        // Immediately trigger update check by calling the PUC checker
+        // This ensures updates are detected and can be applied right away
+        if (class_exists('YahnisElsts\PluginUpdateChecker\v5\PucFactory')) {
+            try {
+                $update_checker = PucFactory::buildUpdateChecker(
+                    'https://github.com/suvarna-sumanth/Instaread-Plugin/',
+                    __FILE__,
+                    $partner_id
+                );
+                $update_checker->checkForUpdates();
+                $this->log('Update check completed for ' . $partner_id);
+            } catch (Exception $e) {
+                $this->log('Update check error: ' . $e->getMessage());
+            }
+        }
     }
 
     /**
