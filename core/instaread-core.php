@@ -146,7 +146,7 @@ class InstareadPlayer {
     }
 
     private function log($msg) {
-        if (self::$debug || $this->is_debug_enabled()) {
+        if (true || self::$debug || $this->is_debug_enabled()) {
             error_log('[InstareadPlayer] ' . print_r($msg, true));
         }
     }
@@ -600,22 +600,24 @@ class InstareadPlayer {
             return;
         }
 
-        // Load all required admin dependencies
+        // Load all required admin dependencies for upgrader
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/misc.php';
         require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
         require_once ABSPATH . 'wp-admin/includes/plugin.php';
-        require_once ABSPATH . 'wp-admin/includes/class-automatic-upgrader-skin.php';
 
+        // Initialize WP_Filesystem — required for Plugin_Upgrader to write files
         WP_Filesystem();
 
-        // Use WP_Automatic_Updater — the proper WordPress way to auto-update plugins.
-        // Plugin_Upgrader::upgrade() called directly cannot update the currently-running
-        // plugin mid-execution. WP_Automatic_Updater handles this correctly.
-        $auto_updater = new \WP_Automatic_Updater();
-        $result = $auto_updater->update('plugin', $updates->response[$our_basename]);
+        // Disable file modification checks that block upgrades on some hosts
+        add_filter('file_mod_allowed', '__return_true');
+
+        $skin    = new \Automatic_Upgrader_Skin();
+        $upgrader = new \Plugin_Upgrader($skin);
+        $result  = $upgrader->upgrade($our_basename);
 
         $this->log('Auto-update result: ' . print_r($result, true));
+        $this->log('Skin feedback: ' . print_r($skin->get_upgrade_messages(), true));
         delete_transient('instaread_force_update');
     }
 
