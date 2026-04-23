@@ -1,10 +1,10 @@
 {
   "name": "Instaread Audio Player - hollywoodintoto",
-  "version": "4.4.16",
-  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/hollywoodintoto-v4.4.16/hollywoodintoto-v4.4.16.zip",
+  "version": "4.4.17",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/hollywoodintoto-v4.4.17/hollywoodintoto-v4.4.17.zip",
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.4.16</h4><ul><li>Partner-specific build for hollywoodintoto</li></ul>"
+    "changelog": "<h4>4.4.17</h4><ul><li>Add cron-based auto-update trigger for webhook</li></ul>"
   }
 }
