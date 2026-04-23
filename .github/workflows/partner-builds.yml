@@ -122,22 +122,8 @@ jobs:
           WEBHOOK_URL="${{ secrets.INSTAREAD_WEBHOOK_URL }}"
           WEBHOOK_SECRET="${{ secrets.INSTAREAD_WEBHOOK_SECRET }}"
 
-          # Create payload
-          PAYLOAD=$(cat <<'EOF'
-          {
-            "action": "published",
-            "release": {
-              "tag_name": "PARTNER_ID-vVERSION",
-              "partner_id": "PARTNER_ID",
-              "version": "VERSION"
-            }
-          }
-          EOF
-          )
-
-          # Replace placeholders
-          PAYLOAD="${PAYLOAD//PARTNER_ID/$PARTNER_ID}"
-          PAYLOAD="${PAYLOAD//VERSION/$VERSION}"
+          # Build compact JSON payload (no whitespace so signature matches server re-serialization)
+          PAYLOAD="{\"action\":\"published\",\"release\":{\"tag_name\":\"${PARTNER_ID}-v${VERSION}\",\"partner_id\":\"${PARTNER_ID}\",\"version\":\"${VERSION}\"}}"
 
           # Generate signature
           SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | sed 's/.*= //')
