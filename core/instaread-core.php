@@ -497,13 +497,12 @@ class InstareadPlayer {
         delete_transient('plugin_update_checker_' . $partner_id);
         delete_transient('update_plugins');
 
-        // Schedule an immediate cron event to check for plugin updates
-        // This will trigger WordPress' update mechanism right away
-        if (!wp_next_scheduled('wp_update_plugins')) {
-            wp_schedule_single_event(time(), 'wp_update_plugins');
+        // Immediately trigger WordPress update check function
+        // This runs the actual update check without waiting for cron
+        if (function_exists('wp_update_plugins')) {
+            wp_update_plugins();
+            $this->log('Update check executed immediately for ' . $partner_id);
         }
-
-        $this->log('Update check scheduled for ' . $partner_id);
     }
 
     /**
