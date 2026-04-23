@@ -432,12 +432,13 @@ class InstareadPlayer {
             return;
         }
 
-        // Fresh install: $hook_extra['plugin'] is the plugin basename
-        // Auto-update: $hook_extra['plugins'] is an array of basenames
+        // WordPress uses 'plugin' (singular) for manual installs and direct Plugin_Upgrader calls,
+        // and 'plugins' (plural array) for bulk/auto-updates via WP_Automatic_Updater.
         $our_basename = plugin_basename(__FILE__);
-        $affected = $action === 'install'
-            ? [$hook_extra['plugin'] ?? '']
-            : (array) ($hook_extra['plugins'] ?? []);
+        $affected = array_filter(array_merge(
+            (array) ($hook_extra['plugin']  ?? []),
+            (array) ($hook_extra['plugins'] ?? [])
+        ));
 
         if (!in_array($our_basename, $affected, true)) {
             return;
@@ -596,25 +597,22 @@ class InstareadPlayer {
             return;
         }
 
-        // Import all required upgrader dependencies (needed on non-admin/loopback requests)
+        // Load all required admin dependencies
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/misc.php';
         require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
         require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        require_once ABSPATH . 'wp-admin/includes/class-automatic-upgrader-skin.php';
 
-        // WP_Filesystem must be initialized before Plugin_Upgrader can write files
         WP_Filesystem();
 
-        // Create an upgrader instance and perform the update
-        $upgrader = new \Plugin_Upgrader();
-        $result = $upgrader->upgrade($our_basename);
+        // Use WP_Automatic_Updater — the proper WordPress way to auto-update plugins.
+        // Plugin_Upgrader::upgrade() called directly cannot update the currently-running
+        // plugin mid-execution. WP_Automatic_Updater handles this correctly.
+        $auto_updater = new \WP_Automatic_Updater();
+        $result = $auto_updater->update('plugin', $updates->response[$our_basename]);
 
-        if (is_wp_error($result)) {
-            $this->log('Auto-update failed: ' . $result->get_error_message());
-        } else {
-            $this->log('Auto-update completed successfully');
-        }
-
+        $this->log('Auto-update result: ' . print_r($result, true));
         delete_transient('instaread_force_update');
     }
 
