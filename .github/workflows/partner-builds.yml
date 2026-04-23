@@ -109,3 +109,45 @@ jobs:
             git commit -m "Update plugin.json for ${{ github.event.inputs.partner_id }} v${{ github.event.inputs.version }}"
             git push
           fi
+
+      - name: Trigger instant update webhook
+        if: success()
+        run: |
+          PARTNER_ID="${{ github.event.inputs.partner_id }}"
+          VERSION="${{ github.event.inputs.version }}"
+          WEBHOOK_URL="${{ secrets.INSTAREAD_WEBHOOK_URL }}"
+          WEBHOOK_SECRET="${{ secrets.INSTAREAD_WEBHOOK_SECRET }}"
+
+          # Create payload
+          PAYLOAD=$(cat <<'EOF'
+          {
+            "action": "published",
+            "release": {
+              "tag_name": "PARTNER_ID-vVERSION",
+              "partner_id": "PARTNER_ID",
+              "version": "VERSION"
+            }
+          }
+          EOF
+          )
+
+          # Replace placeholders
+          PAYLOAD="${PAYLOAD//PARTNER_ID/$PARTNER_ID}"
+          PAYLOAD="${PAYLOAD//VERSION/$VERSION}"
+
+          # Generate signature
+          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | sed 's/.*= //')
+
+          # Send webhook
+          echo "Triggering webhook for $PARTNER_ID v$VERSION"
+          curl -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-Instaread-Signature: sha256=$SIGNATURE" \
+            -d "$PAYLOAD" \
+            -w "\nHTTP Status: %{http_code}\n"
+
+          echo "✅ Webhook triggered successfully"
+
+      - name: Log webhook trigger
+        if: success()
+        run: echo "✅ Update webhook triggered for ${{ github.event.inputs.partner_id }} v${{ github.event.inputs.version }}"

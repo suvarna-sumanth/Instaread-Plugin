@@ -132,6 +132,7 @@ class InstareadPlayer {
         add_action('admin_notices',            [$this, 'show_update_admin_notice']);
         add_action('admin_init',               [$this, 'maybe_send_heartbeat']);
         add_action('admin_init',               [$this, 'maybe_send_activation_telemetry']);
+        add_action('wp_loaded',                [$this, 'maybe_force_update_check']);
 
         $this->maybe_migrate_old_settings();
         $this->log('Instaread Player initialized.');
@@ -467,6 +468,37 @@ class InstareadPlayer {
 
         $this->send_telemetry('install', $old_version, $this->plugin_version);
         $this->log('Activation telemetry sent via admin_init fallback.');
+    }
+
+    /**
+     * Handles instant update check triggered by webhook
+     * When webhook sends ?instaread_force_update_check=partner_id,
+     * immediately check for updates (don't wait 12 hours)
+     */
+    public function maybe_force_update_check() {
+        // Get parameter if present
+        $force_check = isset($_GET['instaread_force_update_check'])
+            ? sanitize_text_field($_GET['instaread_force_update_check'])
+            : '';
+
+        if (empty($force_check)) {
+            return;
+        }
+
+        // Verify it matches our partner_id
+        if ($force_check !== ($this->partner_config['partner_id'] ?? '')) {
+            return;
+        }
+
+        $this->log('Webhook triggered instant update check');
+
+        // Clear the update cache transient to force immediate check
+        $partner_id = $this->partner_config['partner_id'] ?? '';
+        delete_transient('plugin_update_checker_' . $partner_id);
+
+        // This will trigger the update check when wp_admin or cron next runs
+        // For immediate effect during web request, we could call wp_update_plugins()
+        // but that's heavy, so we let it happen naturally on next admin load
     }
 
     /**
