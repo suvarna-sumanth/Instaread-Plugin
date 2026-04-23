@@ -555,9 +555,9 @@ class InstareadPlayer {
             return;
         }
 
-        $this->log('Loopback check: Forcing update check');
+        $this->log('Loopback check: Forcing update check and applying auto-update');
 
-        // Clear transients
+        // Clear transients to force fresh check
         delete_transient('update_plugins');
         delete_transient('plugin_update_checker_' . $partner_id);
 
@@ -566,16 +566,8 @@ class InstareadPlayer {
             wp_update_plugins();
         }
 
-        // Get updates and auto-apply if available
-        $updates = get_site_transient('update_plugins');
-        if (!empty($updates->response)) {
-            $our_basename = plugin_basename(__FILE__);
-            if (isset($updates->response[$our_basename])) {
-                // Trigger auto-update via WordPress' filter
-                do_action('wp_update_plugins');
-                $this->log('Auto-update check triggered for ' . $partner_id);
-            }
-        }
+        // Directly trigger auto-update (not via cron)
+        $this->trigger_auto_update_now();
 
         // Exit silently (don't output HTML)
         wp_die('', '', ['response' => 200]);
