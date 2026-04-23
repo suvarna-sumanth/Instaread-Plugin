@@ -619,30 +619,19 @@ class InstareadPlayer {
         // Disable file modification checks that block upgrades on some hosts
         add_filter('file_mod_allowed', '__return_true');
 
-        // Inject the update info directly into update_plugins transient so Plugin_Upgrader can find it
-        $our_basename = plugin_basename(__FILE__);
-        $update_obj = (object) [
-            'id'          => $our_basename,
-            'slug'        => dirname($our_basename),
-            'plugin'      => $our_basename,
-            'new_version' => $remote_version,
-            'url'         => $plugin_data['download_url'],
-            'package'     => $plugin_data['download_url'],
-        ];
-
-        $updates = get_site_transient('update_plugins');
-        if (!is_object($updates)) {
-            $updates = new stdClass();
-        }
-        if (!isset($updates->response)) {
-            $updates->response = [];
-        }
-        $updates->response[$our_basename] = $update_obj;
-        set_site_transient('update_plugins', $updates);
+        // Use install() with the direct download URL — bypasses Plugin_Upgrader's internal
+        // version check (which would block if the transient doesn't agree) and installs
+        // the zip directly over the existing plugin directory.
+        $our_basename    = plugin_basename(__FILE__);
+        $our_plugin_dir  = dirname(WP_PLUGIN_DIR . '/' . $our_basename);
+        $download_url    = $plugin_data['download_url'];
 
         $skin     = new \Automatic_Upgrader_Skin();
         $upgrader = new \Plugin_Upgrader($skin);
-        $result   = $upgrader->upgrade($our_basename);
+
+        // install() downloads + extracts the zip; the second arg tells it to replace
+        // an existing plugin (destination folder) rather than create a fresh one.
+        $result = $upgrader->install($download_url, ['overwrite_package' => true]);
 
         $this->log('Auto-update result: ' . print_r($result, true));
         $this->log('Skin feedback: ' . print_r($skin->get_upgrade_messages(), true));
