@@ -558,19 +558,9 @@ class InstareadPlayer {
             return;
         }
 
-        $this->log('Loopback check: Forcing update check and applying auto-update');
+        $this->log('Loopback check: Applying auto-update directly from plugin.json');
 
-        // Clear transients and PUC state to force fresh check
-        delete_transient('update_plugins');
-        delete_transient('plugin_update_checker_' . $partner_id);
-        delete_option('external_updates-instaread-' . $partner_id);
-
-        // Check for updates
-        if (function_exists('wp_update_plugins')) {
-            wp_update_plugins();
-        }
-
-        // Directly trigger auto-update (not via cron)
+        // Directly trigger auto-update — fetches plugin.json directly, no transient dependency
         $this->trigger_auto_update_now();
 
         // Exit silently (don't output HTML)
@@ -587,18 +577,35 @@ class InstareadPlayer {
             return;
         }
 
-        // Get available updates for plugins
-        $updates = get_site_transient('update_plugins');
-        if (empty($updates) || empty($updates->response)) {
-            $this->log('No updates available for auto-update');
+        // Directly fetch plugin.json — bypasses update_plugins transient which may not be populated yet
+        $plugin_json_url = "https://raw.githubusercontent.com/suvarna-sumanth/Instaread-Plugin/main/partners/{$partner_id}/plugin.json";
+        $response = wp_safe_remote_get($plugin_json_url, ['timeout' => 15, 'sslverify' => true]);
+
+        if (is_wp_error($response)) {
+            $this->log('Failed to fetch plugin.json: ' . $response->get_error_message());
             return;
         }
 
-        $our_basename = plugin_basename(__FILE__);
-        if (!isset($updates->response[$our_basename])) {
-            $this->log('No update available for this plugin');
+        $body = wp_remote_retrieve_body($response);
+        $plugin_data = json_decode($body, true);
+
+        if (empty($plugin_data['version']) || empty($plugin_data['download_url'])) {
+            $this->log('Invalid plugin.json response: ' . $body);
             return;
         }
+
+        $remote_version = $plugin_data['version'];
+        $current_version = $this->partner_config['version'] ?? self::PLUGIN_VERSION;
+
+        $this->log("Remote version: {$remote_version}, Current version: {$current_version}");
+
+        if (!version_compare($remote_version, $current_version, '>')) {
+            $this->log("No update needed: remote {$remote_version} <= current {$current_version}");
+            delete_transient('instaread_force_update');
+            return;
+        }
+
+        $this->log("Applying update: {$current_version} -> {$remote_version}");
 
         // Load all required admin dependencies for upgrader
         require_once ABSPATH . 'wp-admin/includes/file.php';
@@ -612,9 +619,30 @@ class InstareadPlayer {
         // Disable file modification checks that block upgrades on some hosts
         add_filter('file_mod_allowed', '__return_true');
 
-        $skin    = new \Automatic_Upgrader_Skin();
+        // Inject the update info directly into update_plugins transient so Plugin_Upgrader can find it
+        $our_basename = plugin_basename(__FILE__);
+        $update_obj = (object) [
+            'id'          => $our_basename,
+            'slug'        => dirname($our_basename),
+            'plugin'      => $our_basename,
+            'new_version' => $remote_version,
+            'url'         => $plugin_data['download_url'],
+            'package'     => $plugin_data['download_url'],
+        ];
+
+        $updates = get_site_transient('update_plugins');
+        if (!is_object($updates)) {
+            $updates = new stdClass();
+        }
+        if (!isset($updates->response)) {
+            $updates->response = [];
+        }
+        $updates->response[$our_basename] = $update_obj;
+        set_site_transient('update_plugins', $updates);
+
+        $skin     = new \Automatic_Upgrader_Skin();
         $upgrader = new \Plugin_Upgrader($skin);
-        $result  = $upgrader->upgrade($our_basename);
+        $result   = $upgrader->upgrade($our_basename);
 
         $this->log('Auto-update result: ' . print_r($result, true));
         $this->log('Skin feedback: ' . print_r($skin->get_upgrade_messages(), true));
