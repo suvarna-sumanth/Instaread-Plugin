@@ -499,6 +499,8 @@ class InstareadPlayer {
         // Clear all update cache transients to force immediate check
         delete_transient('plugin_update_checker_' . $partner_id);
         delete_transient('update_plugins');
+        // Clear PUC's own state option (stores cached update check result)
+        delete_option('external_updates-instaread-' . $partner_id);
 
         // Set a transient flag to trigger auto-update on next request
         set_transient('instaread_force_update', $partner_id, HOUR_IN_SECONDS);
@@ -558,9 +560,10 @@ class InstareadPlayer {
 
         $this->log('Loopback check: Forcing update check and applying auto-update');
 
-        // Clear transients to force fresh check
+        // Clear transients and PUC state to force fresh check
         delete_transient('update_plugins');
         delete_transient('plugin_update_checker_' . $partner_id);
+        delete_option('external_updates-instaread-' . $partner_id);
 
         // Check for updates
         if (function_exists('wp_update_plugins')) {
