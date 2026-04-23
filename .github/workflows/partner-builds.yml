@@ -63,6 +63,10 @@ jobs:
           # Copy plugin-update-checker from root (CRITICAL FIX)
           cp -r plugin-update-checker ${BUILD_DIR}/
 
+          # Create mu-plugins directory and copy auto-updater (enables automatic updates on any WordPress)
+          mkdir -p ${BUILD_DIR}/mu-plugins
+          cp core/instaread-mu-plugin.php ${BUILD_DIR}/mu-plugins/instaread-auto-updater.php
+
           # Copy partner-specific config
           cp partners/${PARTNER_ID}/config.json ${BUILD_DIR}/
           cp partners/${PARTNER_ID}/styles.css ${BUILD_DIR}/ 2>/dev/null || true
