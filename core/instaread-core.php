@@ -379,6 +379,11 @@ class InstareadPlayer {
     // get_plugin_data() was reading and parsing the plugin file header on every single request.
 
     private function get_settings() {
+        // suppress_urls always comes from WP admin settings, regardless of config.json
+        $wp_raw       = get_option('instaread_settings', []);
+        $raw_suppress  = $wp_raw['suppress_urls'] ?? '';
+        $suppress_urls = array_values(array_filter(array_map('trim', explode("\n", $raw_suppress))));
+
         if ($this->partner_config) {
             $this->log('Loaded settings from partner config');
             return [
@@ -388,10 +393,11 @@ class InstareadPlayer {
                 ],
                 'injection_context'   => $this->partner_config['injection_context'] ?? 'singular',
                 'use_player_loader'   => !empty($this->partner_config['use_player_loader']),
+                'suppress_urls'       => $suppress_urls,
             ];
         }
 
-        $wp = get_option('instaread_settings', []);
+        $wp = $wp_raw;
         $this->log('Loaded settings from WP options');
 
         return [
@@ -402,6 +408,7 @@ class InstareadPlayer {
             ]],
             'injection_context'   => $wp['injection_context'] ?? 'singular',
             'use_player_loader'   => !empty($wp['use_player_loader']),
+            'suppress_urls'       => $suppress_urls,
         ];
     }
 
@@ -706,9 +713,20 @@ class InstareadPlayer {
     }
 
     public function register_settings() {
-        register_setting('instaread_settings', 'instaread_settings');
+        register_setting('instaread_settings', 'instaread_settings', [$this, 'sanitize_settings']);
         add_settings_section('instaread_main', 'Instaread Config', null, 'instaread-settings');
         add_settings_field('instaread_publication', 'Publication', [$this, 'field_text'], 'instaread-settings', 'instaread_main', ['key' => 'publication']);
+        add_settings_field(
+            'instaread_suppress_urls',
+            'Suppress Player on URLs',
+            [$this, 'field_textarea'],
+            'instaread-settings',
+            'instaread_main',
+            [
+                'key'         => 'suppress_urls',
+                'description' => 'One URL path per line (e.g. /about, /contact/us). The player will not appear on these pages.',
+            ]
+        );
         $this->log('Registered WP admin settings');
     }
 
@@ -717,6 +735,14 @@ class InstareadPlayer {
         $value = esc_attr($this->settings[$key] ?? '');
         echo "<input type='text' name='instaread_settings[$key]' value='$value'>";
         $this->log("Rendered field for key: $key, value: $value");
+    }
+
+    public function field_textarea($args) {
+        $key   = $args['key'];
+        $raw   = $this->settings[$key] ?? [];
+        $value = esc_textarea(is_array($raw) ? implode("\n", $raw) : (string) $raw);
+        $desc  = isset($args['description']) ? '<p class="description">' . esc_html($args['description']) . '</p>' : '';
+        echo "<textarea name='instaread_settings[$key]' rows='6' cols='50' style='font-family:monospace;'>$value</textarea>$desc";
     }
 
     public function add_settings_page() {
@@ -769,6 +795,23 @@ class InstareadPlayer {
             $body_classes = (array) get_body_class();
             foreach ($this->partner_config['suppress_body_classes'] as $blocked_class) {
                 if (in_array(trim((string) $blocked_class), $body_classes, true)) {
+                    return false;
+                }
+            }
+        }
+
+        // Admin-configured URL suppression — checked after body-class but before context gate.
+        if (!empty($this->settings['suppress_urls']) && is_array($this->settings['suppress_urls'])) {
+            $request_path = strtok(isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/', '?');
+            $request_path = '/' . trim($request_path, '/');
+            foreach ($this->settings['suppress_urls'] as $suppressed) {
+                // Accept either a full URL or a bare path — extract path either way.
+                if (strpos($suppressed, '://') !== false) {
+                    $parsed    = parse_url($suppressed);
+                    $suppressed = $parsed['path'] ?? $suppressed;
+                }
+                $normalized = '/' . trim($suppressed, '/');
+                if ($request_path === $normalized) {
                     return false;
                 }
             }
@@ -1517,7 +1560,10 @@ class InstareadPlayer {
     }
 
     public function sanitize_settings($in) {
-        return ['publication' => sanitize_text_field($in['publication'] ?? 'default')];
+        return [
+            'publication'   => sanitize_text_field($in['publication'] ?? 'default'),
+            'suppress_urls' => sanitize_textarea_field($in['suppress_urls'] ?? ''),
+        ];
     }
 
     private function maybe_migrate_old_settings() {
