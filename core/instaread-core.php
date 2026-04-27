@@ -310,17 +310,35 @@ class InstareadPlayer {
      *   - A full-site purge (rocket_clean_domain, w3tc_flush_all, etc.) causes a
      *     thundering herd of cache rebuilds on high-traffic partner sites.
      *
+     * Opt-in escape hatch:
+     *   - Set "clear_page_cache_on_upgrade": true in partner config.json to also
+     *     purge WP Rocket's full page cache on version bump. Use only when stale
+     *     HTML caches are demonstrably hiding the player on upgrade.
+     *
      * Safe by design:
      *   - Every call is guarded with function_exists / class_exists / method_exists
      *   - Only deletes minified JS caches, never page cache, content, or DB data
      *   - Wrapped in try/catch so any unexpected error is logged, never shown to visitors
      */
     private function clear_partner_cache() {
+        $clear_page_cache = !empty($this->partner_config['clear_page_cache_on_upgrade']);
+
         try {
             // --- WP Rocket (JS minify only, NOT page cache) ---
             if (function_exists('rocket_clean_minify')) {
                 rocket_clean_minify('js');
                 $this->log('Cleared WP Rocket minified JS cache.');
+            }
+
+            // --- WP Rocket page cache (opt-in per partner) ---
+            // Triggers a full-site page cache purge so the next visitor to each URL
+            // re-runs the_content filter and gets the updated server-side injection.
+            // Only enable for partners where stale page caches are causing missing
+            // players after plugin upgrades. Causes a brief CPU/DB load spike on
+            // high-traffic sites until the cache re-warms.
+            if ($clear_page_cache && function_exists('rocket_clean_domain')) {
+                rocket_clean_domain();
+                $this->log('Cleared WP Rocket page cache (clear_page_cache_on_upgrade=true).');
             }
 
             // --- Autoptimize (JS/CSS aggregation cache) ---

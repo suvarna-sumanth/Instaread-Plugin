@@ -1,10 +1,10 @@
 {
   "name": "Instaread Audio Player - oann",
-  "version": "4.4.9",
-  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/oann-v4.4.9/oann-v4.4.9.zip",
+  "version": "4.5.0",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/oann-v4.5.0/oann-v4.5.0.zip",
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.4.9</h4><ul><li>Partner-specific build for oann</li></ul>"
+    "changelog": "<h4>4.5.0</h4><ul><li>Switch to WordPress-native injection (empty selector + prepend) for reliable server-side player injection on every article</li><li>Enable automatic WP Rocket page cache purge on plugin upgrade so cached HTML is regenerated with the player</li></ul>"
   }
 }
