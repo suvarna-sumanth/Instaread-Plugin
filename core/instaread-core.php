@@ -340,9 +340,41 @@ class InstareadPlayer {
             // Only enable for partners where stale page caches are causing missing
             // players after plugin upgrades. Causes a brief CPU/DB load spike on
             // high-traffic sites until the cache re-warms.
-            if ($clear_page_cache && function_exists('rocket_clean_domain')) {
-                rocket_clean_domain();
-                $this->log('Cleared WP Rocket page cache (clear_page_cache_on_upgrade=true).');
+            //
+            // Belt-and-suspenders: rocket_clean_domain() alone sometimes misses cache
+            // variants on multi-cookie / multi-device setups. We also call:
+            //   - rocket_clean_files() with the home URL (forces filesystem deletion)
+            //   - rocket_clean_post() per recent post (catches post-specific cache keys)
+            //   - flush_rocket_htaccess() (rebuilds rewrite rules)
+            if ($clear_page_cache) {
+                if (function_exists('rocket_clean_domain')) {
+                    rocket_clean_domain();
+                    $this->log('Cleared WP Rocket page cache (rocket_clean_domain).');
+                }
+                if (function_exists('rocket_clean_files')) {
+                    rocket_clean_files(home_url('/'));
+                    $this->log('Forced WP Rocket cache file deletion for home URL.');
+                }
+                if (function_exists('flush_rocket_htaccess')) {
+                    flush_rocket_htaccess();
+                    $this->log('Flushed WP Rocket htaccess rules.');
+                }
+                // Per-post purge for the most recent published posts — catches cases
+                // where the global purge missed individual post cache variants.
+                if (function_exists('rocket_clean_post')) {
+                    $recent_post_ids = get_posts([
+                        'post_type'      => 'post',
+                        'post_status'    => 'publish',
+                        'numberposts'    => 50,
+                        'fields'         => 'ids',
+                        'no_found_rows'  => true,
+                        'suppress_filters' => true,
+                    ]);
+                    foreach ($recent_post_ids as $pid) {
+                        rocket_clean_post($pid);
+                    }
+                    $this->log('Per-post WP Rocket purge for ' . count($recent_post_ids) . ' recent posts.');
+                }
             }
 
             // --- Autoptimize (JS/CSS aggregation cache) ---

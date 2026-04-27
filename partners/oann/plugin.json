@@ -1,10 +1,10 @@
 {
   "name": "Instaread Audio Player - oann",
-  "version": "4.5.2",
-  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/oann-v4.5.2/oann-v4.5.2.zip",
+  "version": "4.5.3",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/oann-v4.5.3/oann-v4.5.3.zip",
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.5.2</h4><ul><li>Partner-specific build for oann</li></ul>"
+    "changelog": "<h4>4.5.3</h4><ul><li>Stronger WP Rocket cache invalidation: rocket_clean_domain + rocket_clean_files + flush_rocket_htaccess + per-post purge for the 50 most recent posts to catch all cache variants</li><h4>4.5.2</h4><ul><li>Inject player after hero figure when present, fall back to before first paragraph</li><li>Disable JS mover fallback so player is always server-side rendered</li><h4>4.5.1</h4><ul><li>Fix: plugin upgrade detection now reads version from partner config</li><h4>4.5.0</h4><ul><li>WordPress-native server-side injection + WP Rocket page cache purge on upgrade</li></ul>"
   }
 }
