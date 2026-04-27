@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.5.1</h4><ul><li>Fix: plugin upgrade detection now reads version from partner config so clear_page_cache_on_upgrade actually fires on release</li><h4>4.5.0</h4><ul><li>Switch to WordPress-native injection (empty selector + prepend) for reliable server-side player injection on every article</li><li>Enable automatic WP Rocket page cache purge on plugin upgrade so cached HTML is regenerated with the player</li></ul>"
+    "changelog": "<h4>4.5.1</h4><ul><li>Partner-specific build for oann</li></ul>"
   }
 }
