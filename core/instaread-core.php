@@ -96,8 +96,12 @@ class InstareadPlayer {
 
         $this->settings = $this->get_settings();
 
-        // FIX #5: Version now comes from the constant — no file I/O on every request
-        $this->plugin_version = self::PLUGIN_VERSION;
+        // Version is sourced from partner config (already loaded above) so each
+        // partner release drives upgrade detection. Falls back to PLUGIN_VERSION
+        // constant when partner config is missing or has no version field.
+        $this->plugin_version = !empty($this->partner_config['version'])
+            ? (string) $this->partner_config['version']
+            : self::PLUGIN_VERSION;
 
         // Only set up update checker if the library was successfully loaded (FIX #2)
         if (class_exists('YahnisElsts\PluginUpdateChecker\v5\PucFactory')) {
