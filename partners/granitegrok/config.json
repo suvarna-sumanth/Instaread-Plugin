@@ -3,6 +3,7 @@
   "domain": "granitegrok.com",
   "publication": "granitegrok",
   "injection_context": "post",
+  "enqueue_remote_player_script_sitewide": true,
   "injection_strategy": "first",
   "injection_rules": [
     {
@@ -73,5 +74,5 @@
       ]
     }
   ],
-  "version": "4.2.8"
+  "version": "4.2.9"
 }
