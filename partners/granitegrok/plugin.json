@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.4.0</h4><ul><li>Fix player not appearing on articles — switched to WordPress-native injection (empty selector + prepend) so the player is reliably injected at the top of post content.</li></ul>"
+    "changelog": "<h4>4.4.0</h4><ul><li>Partner-specific build for granitegrok</li></ul>"
   }
 }
