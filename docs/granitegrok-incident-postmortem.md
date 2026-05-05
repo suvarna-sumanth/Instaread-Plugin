@@ -180,6 +180,27 @@ Full chain of evidence, end-to-end:
 
 3. **Investigate why `the_content` is bypassed on granitegrok specifically.** The footer JS fallback works around the symptom. The real cause is probably a specific plugin or GeneratePress option. Identifying it would let us either fix it on the partner side or add a more targeted server-side workaround.
 
+   **What we ruled out (post-incident remote investigation):**
+   - **Page type is normal:** body class `single single-post single-format-standard` — standard WP post, not a block theme template, not a custom post type.
+   - **Theme is GeneratePress + GeneratePress child** (with GP Premium). Standard, popular theme; renders post body via the normal `the_content()` path.
+   - **`the_content` filter IS firing on this site:** Novashare's `ns-buttons ns-inline-below` markup appears inside `.entry-content` — that's only possible via a `the_content` filter callback. So the filter chain is invoked at least once on the right post.
+   - **Our class IS instantiated and our hooks DO run:** the inline CSS block (`instaread-local-style-inline-css`), the remote `<script>` enqueue, and the `<meta name="instaread-version">` tag all appear in the page. So `__construct()`, `enqueue_assets()`, `wp_head` all fire normally.
+   - **Filter priority is not the cause:** tested both `99` (the v4.2.8-era priority the customer remembers as working) and the default `PHP_INT_MAX - 1`. Neither produced server-side injection.
+   - **REST API content (`wp/v2/posts/<id>`) also lacks the player slot:** the absence is in `the_content` filter output itself, not just in front-end rendering. Whatever is happening, it happens during the filter chain.
+
+   **What we didn't rule out (need server access to test):**
+   - **A specific gate inside `inject_server_side_player()` is returning early.** The static `$already_injected` flag, the `should_inject()` body-class check, the `dup-check`, or the `is_main_query()` check could all be tripping silently on this site.
+   - **Another plugin at exactly `PHP_INT_MAX` priority overwrites our injection** with a content rebuild from raw post meta.
+   - **The publishpress-authors-pro plugin** runs its own `the_content` modifications and may interact badly with us.
+
+   **The 30-second diagnostic that needs admin/SSH access:**
+   1. Add `define('INSTAREAD_DEBUG', true);` to `wp-config.php`.
+   2. Hit any article URL.
+   3. Read the PHP error log (usually `wp-content/debug.log` or the host's PHP error log).
+   4. Look for `[InstareadPlayer]` lines from `inject_server_side_player()` — they will tell us exactly which gate returned early, or whether the function ran to completion (which would mean another plugin is wiping our output downstream).
+
+   This is the unambiguous next step. Without it, we're guessing.
+
 4. **Telemetry POST from granitegrok.com is being blocked.** Updates succeeded after v4.4.5 but the `Plugin Updated` email didn't always arrive — likely Wordfence or similar blocking outbound HTTP. Worth investigating the partner's security plugin config.
 
 ### Low-priority
