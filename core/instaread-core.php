@@ -118,8 +118,15 @@ class InstareadPlayer {
         add_action('admin_menu',         [$this, 'add_settings_page']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
 
-        // Run very late so other plugins (Social Warfare etc.) have already modified content
-        add_filter('the_content',        [$this, 'inject_server_side_player'], PHP_INT_MAX - 1, 1);
+        // Run very late by default so other plugins (Social Warfare etc.) have already
+        // modified content. Some themes/plugins (e.g. content rebuilders running at very
+        // high priority) wipe late injections — partners can override via config:
+        //   "the_content_priority": 99
+        // Default 9999 keeps us late but below any plugin pinned to PHP_INT_MAX.
+        $the_content_priority = isset($this->partner_config['the_content_priority'])
+            ? (int) $this->partner_config['the_content_priority']
+            : (PHP_INT_MAX - 1);
+        add_filter('the_content',        [$this, 'inject_server_side_player'], $the_content_priority, 1);
 
         // Footer fallback — only logs, never injects, to avoid duplicates
         add_action('wp_footer',          [$this, 'maybe_inject_via_footer'], 999);
