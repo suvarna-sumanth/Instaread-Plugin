@@ -1,0 +1,45 @@
+{
+  "partner_id": "swimmingworldmagazine",
+  "domain": "swimmingworldmagazine.com",
+  "publication": "swimmingworldmagazine",
+  "enqueue_remote_player_script_sitewide": true,
+  "use_player_loader": true,
+  "player_loader_url": "https://instaread.co/js/instaread.player.js",
+  "injection_context": "post",
+  "injection_strategy": "first",
+  "injection_rules": [
+    {
+      "target_selector": ".post-author",
+      "insert_position": "after_element",
+      "exclude_slugs": [
+        "/",
+        "/about/",
+        "/about-us/",
+        "/contact/",
+        "/contact-us/",
+        "/privacy-policy/",
+        "/terms-of-service/",
+        "/terms/",
+        "/advertise/",
+        "/advertise-with-us/",
+        "/subscribe/",
+        "/subscription/",
+        "/digital-edition/",
+        "/swimming-world-magazine/",
+        "/shop/",
+        "/cart/",
+        "/checkout/",
+        "/my-account/",
+        "/faq/",
+        "/faq-frequently-asked-questions/",
+        "/news/",
+        "/video/",
+        "/editorial-policy/",
+        "/authors/",
+        "/partner-with-us/",
+        "/sign-up-for-emails/"
+      ]
+    }
+  ],
+  "version": "4.4.5"
+}

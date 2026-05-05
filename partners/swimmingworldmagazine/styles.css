@@ -1,0 +1,19 @@
+/* Swimming World Magazine — Instaread player responsive heights
+   Mirrors the old plugin's layout-shift-prevention rules.
+   Slot default (desktop ≥1300px) is set via slot_css in config.json. */
+
+@media only screen and (min-width: 1251px) {
+  .instaread-player-slot {
+    min-height: 160px !important;
+    height: 160px !important;
+  }
+}
+
+@media only screen and (max-width: 1250px) {
+  .instaread-player-slot {
+    min-height: 240px !important;
+    height: 240px !important;
+  }
+}
+
+

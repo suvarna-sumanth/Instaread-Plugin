@@ -127,6 +127,23 @@ When `false`, the JS only loads on pages where the player is actually injected.
 ### `use_player_loader` (boolean, default: `false`)
 When `true`, emits the stable `instaread.playerv3.js` loader instead of `instaread.{publication}.js`. The loader fetches the publication bundle at runtime, so partners can pin SRI integrity to `playerv3.js` and avoid integrity mismatches when the publication bundle updates.
 
+### `player_loader_url` (string, optional)
+Overrides the default loader URL when `use_player_loader: true`. Instead of `https://player.instaread.co/js/instaread.playerv3.js`, the plugin will enqueue and emit whichever URL is set here.
+
+Use this when a partner needs a different loading chain. For example, `swimmingworldmagazine` uses:
+```json
+"use_player_loader": true,
+"player_loader_url": "https://instaread.co/js/instaread.player.js"
+```
+This loads `instaread.player.js` (the Web Component definition), which then auto-triggers `instaread.{publication}.js` via its `addScript()` call inside `connectedCallback()` — once the `<instaread-player>` element is in the DOM.
+
+Falls back to `https://player.instaread.co/js/instaread.playerv3.js` if `use_player_loader: true` but `player_loader_url` is absent.
+
+> **Required: `styles.css` with explicit height rules**
+> When `player_loader_url` points to `instaread.player.js`, the player slot has no intrinsic height — the iframe is cross-origin and cannot auto-size itself. You **must** ship a `styles.css` in the partner directory with responsive `min-height`/`height` rules on `.instaread-player-slot`, otherwise the player collapses to 0px and is invisible.
+>
+> When using the default `playerv3.js` flow, the publication-specific JS handles sizing itself and `styles.css` is optional.
+
 ### `dynamic_publication_from_host` (boolean, default: `false`)
 When `true`, derives the publication slug from the request host's first DNS label (e.g. `news.example.com` → `news`). Use for multi-tenant partners that serve many sub-brands from one WordPress install.
 

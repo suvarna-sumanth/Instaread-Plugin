@@ -1028,13 +1028,19 @@ class InstareadPlayer {
      * file itself is intentionally stable and changes only on major architectural updates.
      */
     private function get_inline_playerv3_script_tag() {
-        return '<script defer
+        $url = !empty($this->partner_config['player_loader_url'])
+            ? esc_url($this->partner_config['player_loader_url'])
+            : 'https://player.instaread.co/js/instaread.playerv3.js';
+        return sprintf(
+            '<script defer
                 data-cfasync="false"
                 data-no-optimize="1"
                 data-no-defer="1"
                 data-no-minify="1"
-                src="https://player.instaread.co/js/instaread.playerv3.js">
-            </script>';
+                src="%s">
+            </script>',
+            $url
+        );
     }
 
     /**
@@ -1062,9 +1068,12 @@ class InstareadPlayer {
         // of the publication-specific bundle. playerv3.js reads <instaread-player publication="...">
         // from the DOM and dynamically loads the publication bundle — no integrity risk on updates.
         if ($this->should_use_player_loader()) {
+            $loader_url = !empty($this->partner_config['player_loader_url'])
+                ? $this->partner_config['player_loader_url']
+                : 'https://player.instaread.co/js/instaread.playerv3.js';
             wp_enqueue_script(
                 'instaread-player-loader',
-                'https://player.instaread.co/js/instaread.playerv3.js',
+                $loader_url,
                 [],
                 null,
                 true
@@ -1072,7 +1081,7 @@ class InstareadPlayer {
             if (function_exists('wp_script_add_data')) {
                 wp_script_add_data('instaread-player-loader', 'strategy', 'defer');
             }
-            $this->log('Enqueued playerv3 loader script sitewide (use_player_loader enabled).');
+            $this->log('Enqueued player loader script sitewide: ' . $loader_url);
             return;
         }
 
