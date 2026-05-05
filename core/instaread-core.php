@@ -117,6 +117,7 @@ class InstareadPlayer {
         add_action('admin_init',         [$this, 'register_settings']);
         add_action('admin_menu',         [$this, 'add_settings_page']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
+        add_action('wp_head',            [$this, 'emit_version_meta'], 1);
 
         // Run very late by default so other plugins (Social Warfare etc.) have already
         // modified content. Some themes/plugins (e.g. content rebuilders running at very
@@ -1096,6 +1097,24 @@ class InstareadPlayer {
         $this->log('Enqueued remote Instaread publisher script (sitewide / floating persistence).');
     }
 
+    /**
+     * Emits a <meta> tag in <head> with plugin version + partner id on every front-end page.
+     * Lets us verify the deployed plugin version on any partner site without telemetry —
+     * just `curl <url> | grep instaread-version`. Useful when telemetry POSTs are blocked
+     * by host firewalls / security plugins.
+     */
+    public function emit_version_meta() {
+        if (is_admin()) {
+            return;
+        }
+        $partner_id = $this->partner_config['partner_id'] ?? 'default';
+        printf(
+            '<meta name="instaread-version" content="%s" data-partner="%s">' . "\n",
+            esc_attr($this->plugin_version),
+            esc_attr($partner_id)
+        );
+    }
+
     public function enqueue_assets() {
         // FIX #10: $instaread_partner_css is only populated on front-end non-admin
         //          requests — so this global is safely null on admin/AJAX/REST/cron.
@@ -1304,7 +1323,8 @@ class InstareadPlayer {
         $slot_css    = $this->partner_config['slot_css'] ?? 'min-height:144px;';
 
         $slot_html = sprintf(
-            '<div class="instaread-player-slot" style="%s"><instaread-player publication="%s" playertype="%s" color="%s"></instaread-player></div>',
+            '<div class="instaread-player-slot" data-instaread-version="%s" data-instaread-source="footer-js-fallback" style="%s"><instaread-player publication="%s" playertype="%s" color="%s"></instaread-player></div>',
+            esc_attr($this->plugin_version),
             esc_attr($slot_css),
             esc_html($publication),
             esc_html($player_type),
@@ -1642,10 +1662,13 @@ class InstareadPlayer {
     }
 
     private function render_single($publication, $type, $color, $slot_css) {
+        // data-instaread-version: lets us verify the deployed plugin version on a partner
+        // site by curling any article and grepping the slot tag — no telemetry dependency.
         $slot = sprintf(
-            '<div class="instaread-player-slot" style="%s">
+            '<div class="instaread-player-slot" data-instaread-version="%s" style="%s">
                 <instaread-player publication="%s" playertype="%s" color="%s"></instaread-player>
             </div>',
+            esc_attr($this->plugin_version),
             esc_attr($slot_css),
             esc_html($publication),
             esc_html($type),
@@ -1675,7 +1698,7 @@ class InstareadPlayer {
 
     private function render_playlist($publication, $height) {
         return sprintf(
-            '<div class="instaread-player-slot" style="height:%s;min-height:%s;">
+            '<div class="instaread-player-slot" data-instaread-version="%s" style="height:%s;min-height:%s;">
                 <instaread-player publication="%s" p_type="playlist" height="%s"></instaread-player>
                 <script type="module"
                     data-cfasync="false"
@@ -1685,6 +1708,7 @@ class InstareadPlayer {
                     crossorigin="true">
                 </script>
             </div>',
+            esc_attr($this->plugin_version),
             esc_attr($height),
             esc_attr($height),
             esc_html($publication),
