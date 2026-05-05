@@ -1285,9 +1285,38 @@ class InstareadPlayer {
         if (empty($post)) return;
 
         $content = get_the_content();
-        if (strpos($content, 'instaread-player') === false) {
-            $this->log('Footer fallback: player not found in content (no injection performed to avoid duplicates).');
+        if (strpos($content, 'instaread-player') !== false) {
+            return;
         }
+
+        // Server-side the_content injection didn't run (theme bypassed the filter, content
+        // rebuilt by another plugin, etc.). Opt-in JS fallback: locate the configured target
+        // selector in the rendered DOM and prepend the player slot client-side.
+        if (empty($this->partner_config['enable_footer_js_fallback'])) {
+            $this->log('Footer fallback: player not found in content (footer JS fallback disabled in config).');
+            return;
+        }
+
+        $target = $this->partner_config['footer_js_fallback_selector'] ?? '.entry-content';
+        $publication = $this->get_resolved_publication();
+        $player_type = $this->partner_config['playerType'] ?? '';
+        $color       = $this->partner_config['color'] ?? '#59476b';
+        $slot_css    = $this->partner_config['slot_css'] ?? 'min-height:144px;';
+
+        $slot_html = sprintf(
+            '<div class="instaread-player-slot" style="%s"><instaread-player publication="%s" playertype="%s" color="%s"></instaread-player></div>',
+            esc_attr($slot_css),
+            esc_html($publication),
+            esc_html($player_type),
+            esc_html($color)
+        );
+
+        printf(
+            '<script data-cfasync="false" data-no-optimize="1">(function(){var t=document.querySelector(%s);if(t&&!t.querySelector(".instaread-player-slot")){var d=document.createElement("div");d.innerHTML=%s;t.insertBefore(d.firstChild,t.firstChild);}})();</script>',
+            wp_json_encode($target),
+            wp_json_encode($slot_html)
+        );
+        $this->log('Footer fallback: injected client-side player into ' . $target);
     }
 
     private function inject_with_safe_string_manipulation($content, $player_html, $target_selector, $insert_position, $allow_fallback = true) {
