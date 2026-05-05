@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.4.6</h4><ul><li>Add &lt;meta name=&quot;instaread-version&quot;&gt; tag and data-instaread-version attribute on player slots so the deployed version can be verified by curling any partner page — no telemetry dependency.</li></ul>"
+    "changelog": "<h4>4.4.6</h4><ul><li>Partner-specific build for granitegrok</li></ul>"
   }
 }
