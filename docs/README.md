@@ -27,6 +27,26 @@ Complete guides for configuring, deploying, and auditing the Instaread audio pla
 - What NOT to do (and why)
 - Verification checklist
 
+### [Granite Grok Incident Post-Mortem](granitegrok-incident-postmortem.md)
+**Read this when something similar happens again.** Detailed walkthrough of the May 2026 granitegrok player-missing incident covering:
+- The four overlapping bugs that masked each other
+- Why telemetry initially lied about the deployed version
+- Why `WP_Error` returning truthy made silent install failures invisible
+- Why `the_content` filter was bypassed entirely on this site
+- The footer JS fallback that finally fixed it
+- Recommended follow-ups (webhook fan-out, security plugin telemetry blocking, etc.)
+- Lessons applicable to future debugging sessions
+
+### [Partner Config Reference](partner-config-reference.md)
+**Authoritative reference for every key in `partners/<id>/config.json`** covering:
+- All ~20 config keys, what each one does, defaults
+- Footer JS fallback (`enable_footer_js_fallback`) for sites that bypass `the_content`
+- `the_content_priority` override for content-rebuilder conflicts
+- How to verify a deployed plugin version via the `instaread-version` meta tag (no telemetry needed)
+- How to detect injection method via `data-instaread-source` attribute
+- Manually triggering an update on a stuck partner site
+- Annotated granitegrok config as a worked example
+
 ### [Config Scenarios Reference](config-scenarios.md)
 **Script loading configuration guide** covering:
 - `use_player_loader` option
@@ -119,6 +139,13 @@ Run the automated script:
 ./scripts/audit-wordpress-site.sh https://winnipegfreepress.com
 ./scripts/audit-wordpress-site.sh https://bestofarkansassports.com
 ```
+
+### I need to check what plugin version a partner site is running
+```bash
+curl -s https://<partner-domain>/ | grep instaread-version
+# → <meta name="instaread-version" content="4.4.6" data-partner="granitegrok">
+```
+See [Partner Config Reference — Verifying a deployed version](partner-config-reference.md#verifying-a-deployed-version) for full instructions including manual update triggers and detecting failed installs.
 
 ### Player is appearing in wrong location
 1. Check if config has non-empty `target_selector`
