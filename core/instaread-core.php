@@ -505,15 +505,45 @@ class InstareadPlayer {
             return;
         }
 
-        $old_version = get_option(self::VERSION_OPTION_KEY, '0');
+        // The in-memory plugin object was instantiated from the OLD code at the
+        // start of this request. WordPress has just replaced the files on disk,
+        // but PHP does not reload classes mid-request — so $this->plugin_version
+        // still reflects the pre-upgrade version. Re-read config.json from disk
+        // to get the new version string.
+        $old_version = $this->plugin_version;
+        $new_version = $this->read_version_from_disk();
+
+        update_option(self::VERSION_OPTION_KEY, $new_version);
 
         if ($action === 'install') {
-            set_transient('instaread_just_installed', $this->plugin_version, DAY_IN_SECONDS);
-            $this->send_telemetry('install', null, $this->plugin_version);
+            set_transient('instaread_just_installed', $new_version, DAY_IN_SECONDS);
+            $this->send_telemetry('install', null, $new_version);
         } else {
-            set_transient('instaread_just_updated', $this->plugin_version, DAY_IN_SECONDS);
-            $this->send_telemetry('update', $old_version, $this->plugin_version);
+            set_transient('instaread_just_updated', $new_version, DAY_IN_SECONDS);
+            $this->send_telemetry('update', $old_version, $new_version);
         }
+    }
+
+    /**
+     * Re-read the partner config.json from disk to get the freshly-installed
+     * version string. Used by upgrade telemetry, where the in-memory
+     * $this->plugin_version still reflects the pre-upgrade code.
+     * Falls back to $this->plugin_version if the file can't be read.
+     */
+    private function read_version_from_disk() {
+        $config_path = __DIR__ . '/config.json';
+        if (!file_exists($config_path)) {
+            return $this->plugin_version;
+        }
+        $raw = @file_get_contents($config_path);
+        if ($raw === false) {
+            return $this->plugin_version;
+        }
+        $data = json_decode($raw, true);
+        if (json_last_error() !== JSON_ERROR_NONE || empty($data['version'])) {
+            return $this->plugin_version;
+        }
+        return (string) $data['version'];
     }
 
     /**
@@ -697,10 +727,16 @@ class InstareadPlayer {
         $this->log('Auto-update result: ' . print_r($result, true));
         $this->log('Skin feedback: ' . print_r($skin->get_upgrade_messages(), true));
 
-        // Send telemetry email if install succeeded
+        // Send telemetry email if install succeeded.
+        // $current_version is the in-memory partner_config version — i.e. what
+        // was on disk before this install ran. WP_Upgrader::install() returns
+        // truthy on success even though the in-memory class is still the old
+        // code, so we use $current_version (not get_option) as the authoritative
+        // pre-upgrade version. update_option records the new version for
+        // future heartbeats.
         if ($result) {
-            $old_version = get_option(self::VERSION_OPTION_KEY, $current_version);
-            $this->send_telemetry('update', $old_version, $remote_version);
+            update_option(self::VERSION_OPTION_KEY, $remote_version);
+            $this->send_telemetry('update', $current_version, $remote_version);
             set_transient('instaread_just_updated', $remote_version, DAY_IN_SECONDS);
         }
 
