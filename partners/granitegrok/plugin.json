@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.4.1</h4><ul><li>Disable verbose error_log output by default to reduce server log noise.</li></ul>"
+    "changelog": "<h4>4.4.1</h4><ul><li>Partner-specific build for granitegrok</li></ul>"
   }
 }
