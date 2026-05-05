@@ -150,7 +150,7 @@ class InstareadPlayer {
     }
 
     private function log($msg) {
-        if (true || self::$debug || $this->is_debug_enabled()) {
+        if (self::$debug || $this->is_debug_enabled()) {
             error_log('[InstareadPlayer] ' . print_r($msg, true));
         }
     }
