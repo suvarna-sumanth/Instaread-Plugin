@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.4.4</h4><ul><li>Restore the_content filter priority to 99 (matching v4.2.8 behavior) to fix player injection regression on granitegrok.</li></ul>"
+    "changelog": "<h4>4.4.4</h4><ul><li>Partner-specific build for granitegrok</li></ul>"
   }
 }
