@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.4.3</h4><ul><li>Telemetry: emit update_failed event when WP_Upgrader::install() returns WP_Error so silent upgrade failures become visible.</li><li>Telemetry: report accurate old → new version after upgrades by re-reading config.json from disk.</li></ul>"
+    "changelog": "<h4>4.4.3</h4><ul><li>Partner-specific build for granitegrok</li></ul>"
   }
 }
