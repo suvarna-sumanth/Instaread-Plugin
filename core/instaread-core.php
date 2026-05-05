@@ -727,17 +727,24 @@ class InstareadPlayer {
         $this->log('Auto-update result: ' . print_r($result, true));
         $this->log('Skin feedback: ' . print_r($skin->get_upgrade_messages(), true));
 
-        // Send telemetry email if install succeeded.
-        // $current_version is the in-memory partner_config version — i.e. what
-        // was on disk before this install ran. WP_Upgrader::install() returns
-        // truthy on success even though the in-memory class is still the old
-        // code, so we use $current_version (not get_option) as the authoritative
-        // pre-upgrade version. update_option records the new version for
-        // future heartbeats.
-        if ($result) {
+        // Send telemetry email only if install ACTUALLY succeeded.
+        // Plugin_Upgrader::install() returns either:
+        //   - true on success
+        //   - false on a generic failure (e.g. ZIP missing)
+        //   - WP_Error on a structured failure (file permissions, extraction
+        //     error, fs_unavailable, etc.)
+        // is_wp_error() is required because WP_Error objects are TRUTHY in PHP,
+        // so a bare `if ($result)` would report success for a failed upgrade.
+        if ($result === true) {
             update_option(self::VERSION_OPTION_KEY, $remote_version);
             $this->send_telemetry('update', $current_version, $remote_version);
             set_transient('instaread_just_updated', $remote_version, DAY_IN_SECONDS);
+        } else {
+            $error_msg = is_wp_error($result)
+                ? $result->get_error_code() . ': ' . $result->get_error_message()
+                : 'install() returned ' . var_export($result, true);
+            $this->log('Auto-update FAILED for ' . $partner_id . ' v' . $remote_version . ' — ' . $error_msg);
+            $this->send_telemetry('update_failed', $current_version, $remote_version);
         }
 
         delete_transient('instaread_force_update');
