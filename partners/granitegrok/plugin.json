@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.4.5</h4><ul><li>Add wp_footer JS fallback that prepends the player slot into .entry-content when the_content filter injection is bypassed by the theme.</li></ul>"
+    "changelog": "<h4>4.4.5</h4><ul><li>Partner-specific build for granitegrok</li></ul>"
   }
 }
