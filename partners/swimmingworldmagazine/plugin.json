@@ -3,8 +3,8 @@
   "version": "4.4.5",
   "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/swimmingworldmagazine-v4.4.5/swimmingworldmagazine-v4.4.5.zip",
   "requires": "5.6",
-  "tested": "6.7",
+  "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.4.5</h4><ul><li>Upgraded from legacy instaread.php (v1.1.1) to modern plugin architecture</li><li>Added config.json driven injection — no PHP edits needed for future tuning</li><li>Server-side the_content injection replaces fragile wp_head JS DOM manipulation</li><li>Added auto-update support via plugin-update-checker</li><li>Added telemetry heartbeat and SRI integrity stripping</li><li>Responsive height rules preserved from original plugin</li></ul>"
+    "changelog": "<h4>4.4.5</h4><ul><li>Partner-specific build for swimmingworldmagazine</li></ul>"
   }
 }
