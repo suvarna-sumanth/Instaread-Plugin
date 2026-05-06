@@ -391,6 +391,24 @@ class InstareadPlayer {
                 $this->log('Cleared Autoptimize cache.');
             }
 
+            // --- Redis Object Cache (and any drop-in object cache: Memcached, etc.) ---
+            // Some hosts (Kinsta, WP Engine, manual setups) cache rendered HTML fragments,
+            // post content, and serialized objects in Redis via wp-content/object-cache.php.
+            // Stale entries can cause the new plugin's the_content output to be ignored on
+            // upgrade. Only runs when clear_page_cache_on_upgrade is true (opt-in) because
+            // a global object-cache flush briefly hits the DB until the cache rewarms.
+            if ($clear_page_cache && wp_using_ext_object_cache()) {
+                if (function_exists('wp_cache_flush')) {
+                    wp_cache_flush();
+                    $this->log('Flushed external object cache (Redis/Memcached) via wp_cache_flush().');
+                }
+                // Till Krüss "Redis Object Cache Pro" exposes a richer API; use it when present.
+                if (class_exists('RedisCachePro\\Plugin') && method_exists('RedisCachePro\\Plugin', 'flush')) {
+                    \RedisCachePro\Plugin::flush();
+                    $this->log('Flushed Redis Object Cache Pro.');
+                }
+            }
+
             // --- W3 Total Cache (minify only) ---
             if (function_exists('w3tc_flush_minify')) {
                 w3tc_flush_minify();
