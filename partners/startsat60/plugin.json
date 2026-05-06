@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.5.5</h4><ul><li>Restore JS-mover fallback for .Typography injection (matching v4.2.8 behavior). Removes fallback_injection:false which had silently disabled the inline JS that teleports the player to .Typography after React hydration.</li></ul>"
+    "changelog": "<h4>4.5.5</h4><ul><li>Partner-specific build for startsat60</li></ul>"
   }
 }
