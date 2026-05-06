@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.5.6</h4><ul><li>Flush external object cache (Redis Object Cache plugin) on plugin upgrade so stale cached post content / serialized objects don't survive a version bump. Gated on clear_page_cache_on_upgrade so other partners aren't affected.</li></ul>"
+    "changelog": "<h4>4.5.6</h4><ul><li>Partner-specific build for startsat60</li></ul>"
   }
 }
