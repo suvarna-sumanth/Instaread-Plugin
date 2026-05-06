@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.5.4</h4><ul><li>Enable wp_footer JS fallback targeting .Typography — startsat60 uses a headless React front-end (STARLORD_ARTICLE_STATE) that bypasses the_content filter, so server-side injection cannot reach the rendered DOM.</li></ul>"
+    "changelog": "<h4>4.5.4</h4><ul><li>Partner-specific build for startsat60</li></ul>"
   }
 }
