@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.5.7</h4><ul><li>Add force_disable_logs partner config flag — suppresses all $this->log() output even when WP_DEBUG is enabled site-wide. Set to true for startsat60 so plugin lines stop polluting their debug.log.</li></ul>"
+    "changelog": "<h4>4.5.7</h4><ul><li>Partner-specific build for startsat60</li></ul>"
   }
 }
