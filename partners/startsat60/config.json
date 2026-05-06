@@ -5,10 +5,8 @@
     "injection_context": "post",
     "enqueue_remote_player_script_sitewide": false,
     "clear_page_cache_on_upgrade": true,
-    "fallback_injection": false,
+    "fallback_injection": true,
     "injection_strategy": "first",
-    "enable_footer_js_fallback": true,
-    "footer_js_fallback_selector": ".Typography",
     "injection_rules": [
         {
             "target_selector": ".Typography",
@@ -79,5 +77,5 @@
             ]
         }
     ],
-    "version": "4.5.4"
+    "version": "4.5.5"
 }
