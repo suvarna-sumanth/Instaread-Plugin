@@ -77,6 +77,14 @@ class InstareadPlayer {
     const CACHE_CLEAR_LOCK_KEY = 'instaread_cache_clearing';
 
     private function is_debug_enabled() {
+        // Partner-level opt-out: when "force_disable_logs": true is set in the
+        // partner config, we suppress every $this->log() call regardless of
+        // WP_DEBUG / INSTAREAD_DEBUG / instaread_debug filter. Useful for
+        // partners who run WP_DEBUG=true site-wide for their own debugging
+        // and don't want our verbose lines polluting their debug.log.
+        if (!empty($this->partner_config['force_disable_logs'])) {
+            return false;
+        }
         return (defined('WP_DEBUG') && WP_DEBUG)
             || (defined('INSTAREAD_DEBUG') && INSTAREAD_DEBUG)
             || apply_filters('instaread_debug', false);
