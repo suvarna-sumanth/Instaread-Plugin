@@ -1,10 +1,10 @@
 {
   "name": "Instaread Audio Player - startsat60",
-  "version": "4.5.7",
-  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/startsat60-v4.5.7/startsat60-v4.5.7.zip",
+  "version": "4.5.8",
+  "download_url": "https://github.com/suvarna-sumanth/Instaread-Plugin/releases/download/startsat60-v4.5.8/startsat60-v4.5.8.zip",
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.5.7</h4><ul><li>Partner-specific build for startsat60</li></ul>"
+    "changelog": "<h4>4.5.8</h4><ul><li>Enable enqueue_remote_player_script_sitewide so the publication JS loads on every front-end page (supports floating player off article pages).</li></ul>"
   }
 }

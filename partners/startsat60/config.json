@@ -3,7 +3,7 @@
     "domain": "startsat60.com",
     "publication": "startsat60",
     "injection_context": "post",
-    "enqueue_remote_player_script_sitewide": false,
+    "enqueue_remote_player_script_sitewide": true,
     "clear_page_cache_on_upgrade": true,
     "fallback_injection": true,
     "force_disable_logs": true,
@@ -78,5 +78,5 @@
             ]
         }
     ],
-    "version": "4.5.7"
+    "version": "4.5.8"
 }
