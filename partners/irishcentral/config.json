@@ -2,6 +2,7 @@
   "partner_id": "irishcentral",
   "domain": "irishcentral.com",
   "publication": "irishcentral",
+  "enqueue_remote_player_script_sitewide": true,
   "injection_context": "post",
   "injection_strategy": "first",
   "fallback_injection": true,
@@ -75,5 +76,5 @@
       ]
     }
   ],
-  "version": "4.4.6"
+  "version": "4.5.0"
 }
