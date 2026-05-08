@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.5.9</h4><ul><li>Reset PHP OPcache after a successful install so the new plugin files are actually loaded on next request. Fixes the silent-success pattern where Plugin_Upgrader::install() returns true and writes new files to disk, but PHP keeps running cached bytecode of the old version.</li></ul>"
+    "changelog": "<h4>4.5.9</h4><ul><li>Partner-specific build for startsat60</li></ul>"
   }
 }
