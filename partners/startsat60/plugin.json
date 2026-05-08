@@ -5,6 +5,6 @@
   "requires": "5.6",
   "tested": "6.5",
   "sections": {
-    "changelog": "<h4>4.5.8</h4><ul><li>Enable enqueue_remote_player_script_sitewide so the publication JS loads on every front-end page (supports floating player off article pages).</li></ul>"
+    "changelog": "<h4>4.5.8</h4><ul><li>Partner-specific build for startsat60</li></ul>"
   }
 }
