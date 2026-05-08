@@ -770,6 +770,26 @@ class InstareadPlayer {
         // is_wp_error() is required because WP_Error objects are TRUTHY in PHP,
         // so a bare `if ($result)` would report success for a failed upgrade.
         if ($result === true) {
+            // Reset PHP OPcache so the freshly-written files are loaded on next request.
+            // Without this, PHP keeps serving old compiled bytecode for hours even though
+            // the plugin files on disk have been replaced — install reports success but
+            // the running code stays at the old version. This was the root cause of
+            // startsat60's `4.5.7 → 4.5.8` install loop where each install genuinely
+            // succeeded on disk but OPcache served the prior version's PHP forever.
+            // opcache_reset() is safe — invalidates all cached scripts; PHP recompiles
+            // on next access. No-op if OPcache extension isn't loaded.
+            if (function_exists('opcache_reset')) {
+                @opcache_reset();
+                $this->log('OPcache reset after install — fresh PHP files will load on next request.');
+            }
+            // Belt-and-suspenders: invalidate just our plugin's specific files.
+            if (function_exists('opcache_invalidate')) {
+                $plugin_dir = dirname(__FILE__);
+                foreach (glob($plugin_dir . '/*.php') as $php_file) {
+                    @opcache_invalidate($php_file, true);
+                }
+            }
+
             update_option(self::VERSION_OPTION_KEY, $remote_version);
             $this->send_telemetry('update', $current_version, $remote_version);
             set_transient('instaread_just_updated', $remote_version, DAY_IN_SECONDS);
