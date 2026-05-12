@@ -3,8 +3,6 @@
   "domain": "swimmingworldmagazine.com",
   "publication": "swimmingworldmagazine",
   "enqueue_remote_player_script_sitewide": true,
-  "use_player_loader": true,
-  "player_loader_url": "https://instaread.co/js/instaread.player.js",
   "injection_context": "post",
   "injection_strategy": "first",
   "injection_rules": [
@@ -41,5 +39,5 @@
       ]
     }
   ],
-  "version": "4.4.5"
+  "version": "4.4.6"
 }
