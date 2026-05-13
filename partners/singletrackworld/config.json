@@ -71,9 +71,10 @@
         "/news/",
         "/news/stratford-upon-avon-theatre/",
         "/shows/london-theatre/",
-        "/hockey-headlines/"
+        "/hockey-headlines/",
+        "/shop"
       ]
     }
   ],
-  "version": "4.4.5"
+  "version": "4.4.6"
 }
